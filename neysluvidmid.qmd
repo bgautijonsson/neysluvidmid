@@ -1,0 +1,387 @@
+---
+title: "Neysluviðmið"
+author: 
+    -   name: "Brynjólfur Gauti Guðrúnar Jónsson"
+        url: "https://twitter.com/bgautijonsson"
+        affiliation: "Tölfræði, Raunvísindadeild Háskóla Íslands"
+        affiliation-url: "https://www.hi.is/tolfraedi_0"
+date: today
+format: 
+    html:
+        code-fold: true
+        toc: true
+        toc-location: right
+        toc-title: Efnisyfirlit
+editor: source
+theme: flatly
+title-block-banner: true
+standalone: true
+self-contained: true
+---
+
+
+```{r}
+#| include: false
+
+library(cowplot)
+library(tidyverse)
+library(scales)
+library(readxl)
+library(ggthemes)
+library(kableExtra)
+library(gganimate)
+library(lubridate)
+```
+
+# Staðtölur skatta
+
+```{r}
+d_tiund <- read_excel("V_HJUSKAPUR_TEKJUBIL_EINST.xlsx") |> 
+    janitor::clean_names() |> 
+    filter(tekjubil >= 5, tekjubil <= 95) |> 
+    group_by(tekjuar, tekjubil) |> 
+    summarise(fjoldi = sum(fjoldi),
+              heildartekjur = sum(heildartekjur),
+              skattar = sum(skattar),
+              heildarskuldir = sum(heildarskuldir),
+              lifeyrirsgreidslur = sum(lifeyrirsgreidslur),
+              radst_tekjur = heildartekjur - skattar - lifeyrirsgreidslur,
+              tekjuar = unique(as.numeric(tekjuar)),
+              einst_radst = radst_tekjur/fjoldi,
+              .groups = "drop") |> 
+    select(tekjuar, tekjubil, fjoldi, radst_tekjur, einst_radst) |> 
+    arrange(tekjuar, tekjubil)
+```
+
+
+## Ráðstöfunartekjur
+
+
+```{r, fig.width = 10, figh.asp = 0.621, out.width = "100%"}
+p <- d_tiund |> 
+    ggplot(aes(tekjuar, einst_radst, col = tekjubil, group = tekjubil)) +
+    geom_line() +
+    geom_rangeframe(colour = "black") +
+    scale_y_log10(labels = label_number(accuracy = 100), 
+                  breaks = c(min(d_tiund$einst_radst),
+                             max(d_tiund$einst_radst),
+                             3e5,
+                             1e6, 3e6)) +
+    scale_x_continuous(breaks = c(1992, 2000, 2010, 2020)) +
+    scale_color_distiller(type = "div", palette = "RdBu", 
+                          breaks = c(5, 25, 50, 75, 95),
+                          guide = guide_colorbar(reverse = F, barheight = unit(150, "points"))) +
+    theme_tufte() +
+    labs(x = "Tekjuár",
+         y = "Ráðstöfunartekjur meðaleinstaklings",
+         colour = "Hundraðshl.\ntekna",
+         title = "Þróun ráðstöfunartekna meðaleinstaklings eftir hundraðshlutamarki (percentile) tekna") +
+    theme(legend.position = c(1, 0.8), 
+          plot.margin = margin(t = 5, r = 65, b = 5, l = 5), plot.title.position = "panel") 
+
+
+p
+
+
+ggsave(plot = p, filename = "radst_tekjur_yearly.png",
+       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
+```
+
+```{r, fig.width = 10, figh.asp = 0.621, out.width = "100%"}
+p <- d_tiund |> 
+    ggplot(aes(tekjubil, einst_radst, col = tekjuar, group = tekjuar)) +
+    geom_line() +
+    geom_rangeframe(colour = "black") +
+    scale_y_log10(labels = label_number(accuracy = 100), breaks = c(min(d_tiund$einst_radst),
+                                                                    max(d_tiund$einst_radst),
+                                                                    3e5,
+                                                                    1e6, 3e6)) +
+    scale_x_continuous(breaks = c(5, 25, 50, 75, 95)) +
+    scale_color_distiller(type = "div", palette = "RdBu", 
+                          breaks = c(1992, 2000, 2010, 2020),
+                          guide = guide_colorbar(reverse = F, barheight = unit(105, "points"))) +
+    theme_tufte() +
+    labs(x = "Hundraðshlutamark tekna (Percentile)",
+         y = "Ráðstöfunartekjur meðaleinstaklings",
+         colour = "Tekjuár",
+         title = "Ráðstöfunartekjur meðaleinstaklings eftir hundraðshlutamarki (percentile) tekna") +
+    theme(legend.position = c(0.995, 0.84), 
+          plot.margin = margin(t = 5, r = 65, b = 5, l = 5), plot.title.position = "panel") 
+
+
+p
+
+
+ggsave(plot = p, filename = "radst_tekjur.png",
+       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
+```
+
+# Þjóðskrá
+
+```{r}
+d_fast <- read_csv2("hverfaverd_fjolbyli_ar.csv",
+                    locale = locale("is", encoding = "ISO-8859-1")) |> 
+    janitor::clean_names() |> 
+    group_by(tekjuar = ar) |> 
+    mutate(heildarfj = sum(fjoldi_i_urtaki),
+           p = fjoldi_i_urtaki/heildarfj) |> 
+    summarise(kaupverd = sum(p * medalkaupverd_thus_kr * 1000))
+```
+
+```{r, fig.width = 10, figh.asp = 0.621, out.width = "100%"}
+p <- d_fast |> 
+    ggplot(aes(tekjuar, kaupverd)) +
+    geom_line() +
+    geom_rangeframe() +
+    scale_y_continuous(labels = label_number(accuracy = 1e5, big.mark = ".", decimal.mark = ",", suffix = "kr"),
+                       breaks = c(min(d_fast$kaupverd), max(d_fast$kaupverd),
+                                  1e7, 2e7, 3e7, 4e7)) +
+    theme_tufte() +
+    labs(x = "Ár",
+         y = "Meðalkaupverð fjölbýliseignar",
+         title = "Þróun meðalkaupverðs fjölbýliseigna")
+
+p
+
+ggsave(plot = p, filename = "medalverd_fjolbylis.png",
+       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
+```
+
+# Tenging
+
+```{r}
+d <- d_fast |> 
+    inner_join(
+        d_tiund,
+        by = "tekjuar"
+    )
+```
+
+
+```{r}
+vidmid_med_barn <- 4795956
+vidmid_med_bil <- 3461490
+vidmid_an_bils <- 2581034
+
+neysluvidmid_par <- read_excel("SI_Export_20220412163500976.xlsx", skip = 11, 
+           col_names = c("dags", "verdbolga", "markmid")) |> 
+    mutate(dags = lubridate::dmy(dags),
+           ar = year(dags)) |> 
+    filter(month(dags) == 1) |> 
+    select(ar, verdbolga) |> 
+    mutate(verdbolga = 1 + verdbolga / 100,
+           uppsofnud_bolga = exp(cumsum(log(verdbolga))),
+           verdbolga_mv_2019 = uppsofnud_bolga / uppsofnud_bolga[ar == 2019],
+           neysluvidmid_2019_barn = vidmid_med_barn,
+           neysluvidmid_2019_bill = vidmid_med_bil,
+           neysluvidmid_2019_ekki_bill = vidmid_an_bils,
+           neysluvidmid_barn = neysluvidmid_2019_barn * verdbolga_mv_2019,
+           neysluvidmid_bill = neysluvidmid_2019_bill * verdbolga_mv_2019,
+           neysluvidmid_ekki_bill = neysluvidmid_2019_ekki_bill * verdbolga_mv_2019) |> 
+    select(tekjuar = ar, neysluvidmid_barn, neysluvidmid_bill, neysluvidmid_ekki_bill, verdbolga)
+
+
+
+```
+
+```{r, fig.asp = 0.5}
+plot_dat <- d |> 
+    inner_join(
+        neysluvidmid_par,
+        by = "tekjuar"
+    ) |> 
+    mutate(einst_auka_bill = 2 * einst_radst - neysluvidmid_bill,
+           einst_auka_ekki_bill = 2 * einst_radst - neysluvidmid_ekki_bill,
+           einst_auka_fasteign = 2 * einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
+           einst_auka_barn = 2 * einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+    group_by(tekjuar) |> 
+    summarise(min_bill = min(tekjubil[einst_auka_bill >= 0]),
+              min_ekki_bill = min(tekjubil[einst_auka_ekki_bill >= 0]),
+              min_fasteign = min(tekjubil[einst_auka_fasteign >= 0]),
+              min_barn = min(tekjubil[einst_auka_barn >= 0])) |> 
+    rename("+ bíll" = min_bill, "Par" = min_ekki_bill, "+ húsnæðislán" = min_fasteign, "+ barn" = min_barn) |> 
+    pivot_longer(c(-tekjuar)) |> 
+    drop_na()
+
+
+p <- plot_dat |> 
+    ggplot(aes(tekjuar, 1 - value/100)) +
+    geom_line(aes(col = name, lty = name, group = name)) +
+    geom_rangeframe() +
+    geom_text(data = plot_dat |> filter(tekjuar == max(tekjuar)),
+              aes(label = name, col = name), hjust = 0, nudge_x = 0.1) +
+    scale_x_continuous(expand = expansion(), 
+                       limits = c(1991, 2023.5),
+                       breaks = c(1992, 1995, 2000, 2005, 2010, 2015, 2020)) +
+    scale_y_continuous(limits = c(0, 1), 
+                       breaks = c(1 - range(plot_dat$value/100), 0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1),
+                       expand = expansion(),
+                       labels = label_percent()) +
+    scale_colour_brewer(type = "qual", palette = "Set1", direction = -1) +
+    theme_tufte() +
+    theme(legend.position = "none") +
+    labs(x = NULL,
+         y = NULL,
+         title = "Hlutfall para í sambúð sem eiga nóg ráðstöfunarfé til að borga neysluviðmið Félags- og vinnumarkaðsráðuneytisins frá 2019",
+         subtitle = "Neysluviðmiðið er leiðrétt fyrir árlegri verðbólgu samkvæmt Seðlabanka til að bera saman við laun annarra ára")
+
+p
+
+ggsave(plot = p, filename = "neysluvidmid_par.png",
+       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
+```
+
+# Neysluviðmið
+
+## Einstaklingur
+
+```{r}
+vidmid_med_barn <- 3615009
+vidmid_med_bil <- 2376555
+vidmid_an_bils <- 1568899
+
+neysluvidmid_einst <- read_excel("SI_Export_20220412163500976.xlsx", skip = 11, 
+           col_names = c("dags", "verdbolga", "markmid")) |> 
+    mutate(dags = lubridate::dmy(dags),
+           ar = year(dags)) |> 
+    filter(month(dags) == 1) |> 
+    select(ar, verdbolga) |> 
+    mutate(verdbolga = 1 + verdbolga / 100,
+           uppsofnud_bolga = exp(cumsum(log(verdbolga))),
+           verdbolga_mv_2019 = uppsofnud_bolga / uppsofnud_bolga[ar == 2019],
+           neysluvidmid_2019_barn = vidmid_med_barn,
+           neysluvidmid_2019_bill = vidmid_med_bil,
+           neysluvidmid_2019_ekki_bill = vidmid_an_bils,
+           neysluvidmid_barn = neysluvidmid_2019_barn * verdbolga_mv_2019,
+           neysluvidmid_bill = neysluvidmid_2019_bill * verdbolga_mv_2019,
+           neysluvidmid_ekki_bill = neysluvidmid_2019_ekki_bill * verdbolga_mv_2019) |> 
+    select(tekjuar = ar, neysluvidmid_barn, neysluvidmid_bill, neysluvidmid_ekki_bill, verdbolga)
+
+
+
+```
+
+```{r, fig.asp = 0.5}
+plot_dat <- d |> 
+    inner_join(
+        neysluvidmid_einst,
+        by = "tekjuar"
+    ) |> 
+    mutate(einst_auka_bill = einst_radst - neysluvidmid_bill,
+           einst_auka_ekki_bill = einst_radst - neysluvidmid_ekki_bill,
+           einst_auka_fasteign = einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
+           einst_auka_barn = einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+    group_by(tekjuar) |> 
+    summarise(min_bill = min(tekjubil[einst_auka_bill >= 0]),
+              min_ekki_bill = min(tekjubil[einst_auka_ekki_bill >= 0]),
+              min_fasteign = min(tekjubil[einst_auka_fasteign >= 0]),
+              min_barn = min(tekjubil[einst_auka_barn >= 0])) |> 
+    rename("+ bíll" = min_bill, "Einstaklingur" = min_ekki_bill, "+ húsnæðislán" = min_fasteign, "+ barn" = min_barn) |> 
+    pivot_longer(c(-tekjuar)) |> 
+    drop_na()
+
+
+p <- plot_dat |> 
+    ggplot(aes(tekjuar, 1 - value/100)) +
+    geom_line(aes(col = name, lty = name, group = name)) +
+    geom_rangeframe() +
+    geom_text(data = plot_dat |> filter(tekjuar == max(tekjuar)),
+              aes(label = name, col = name), hjust = 0, nudge_x = 0.1) +
+    scale_x_continuous(expand = expansion(), 
+                       limits = c(1991, 2023.5),
+                       breaks = c(1992, 1995, 2000, 2005, 2010, 2015, 2020)) +
+    scale_y_continuous(limits = c(0, 1), 
+                       breaks = c(1 - range(plot_dat$value/100), 0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1),
+                       expand = expansion(),
+                       labels = label_percent()) +
+    scale_colour_brewer(type = "qual", palette = "Set1", direction = -1) +
+    theme_tufte() +
+    theme(legend.position = "none") +
+    labs(x = NULL,
+         y = NULL,
+         title = "Hlutfall einstaklinga sem eiga nóg ráðstöfunarfé til að borga neysluviðmið Félags- og vinnumarkaðsráðuneytisins frá 2019",
+         subtitle = "Neysluviðmiðið er leiðrétt fyrir árlegri verðbólgu samkvæmt Seðlabanka til að bera saman við laun annarra ára")
+
+p
+
+ggsave(plot = p, filename = "neysluvidmid.png",
+       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
+```
+
+
+
+## Par
+
+```{r}
+vidmid_med_barn <- 4795956
+vidmid_med_bil <- 3461490
+vidmid_an_bils <- 2581034
+
+neysluvidmid_par <- read_excel("SI_Export_20220412163500976.xlsx", skip = 11, 
+           col_names = c("dags", "verdbolga", "markmid")) |> 
+    mutate(dags = lubridate::dmy(dags),
+           ar = year(dags)) |> 
+    filter(month(dags) == 1) |> 
+    select(ar, verdbolga) |> 
+    mutate(verdbolga = 1 + verdbolga / 100,
+           uppsofnud_bolga = exp(cumsum(log(verdbolga))),
+           verdbolga_mv_2019 = uppsofnud_bolga / uppsofnud_bolga[ar == 2019],
+           neysluvidmid_2019_barn = vidmid_med_barn,
+           neysluvidmid_2019_bill = vidmid_med_bil,
+           neysluvidmid_2019_ekki_bill = vidmid_an_bils,
+           neysluvidmid_barn = neysluvidmid_2019_barn * verdbolga_mv_2019,
+           neysluvidmid_bill = neysluvidmid_2019_bill * verdbolga_mv_2019,
+           neysluvidmid_ekki_bill = neysluvidmid_2019_ekki_bill * verdbolga_mv_2019) |> 
+    select(tekjuar = ar, neysluvidmid_barn, neysluvidmid_bill, neysluvidmid_ekki_bill, verdbolga)
+
+
+
+```
+
+```{r, fig.asp = 0.5}
+plot_dat <- d |> 
+    inner_join(
+        neysluvidmid_einst,
+        by = "tekjuar"
+    ) |> 
+    mutate(einst_auka_bill = 2 * einst_radst - neysluvidmid_bill,
+           einst_auka_ekki_bill = 2 * einst_radst - neysluvidmid_ekki_bill,
+           einst_auka_fasteign = 2 * einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
+           einst_auka_barn = 2 * einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+    group_by(tekjuar) |> 
+    summarise(min_bill = min(tekjubil[einst_auka_bill >= 0]),
+              min_ekki_bill = min(tekjubil[einst_auka_ekki_bill >= 0]),
+              min_fasteign = min(tekjubil[einst_auka_fasteign >= 0]),
+              min_barn = min(tekjubil[einst_auka_barn >= 0])) |> 
+    rename("Par" = min_ekki_bill, "+ bíll" = min_bill, "+ húsnæðislán" = min_fasteign, "+ barn" = min_barn) |> 
+    pivot_longer(c(-tekjuar)) |> 
+    drop_na()
+
+
+p <- plot_dat |> 
+    ggplot(aes(tekjuar, 1 - value/100)) +
+    geom_line(aes(col = name, lty = name, group = name)) +
+    geom_rangeframe() +
+    geom_text(data = plot_dat |> filter(tekjuar == max(tekjuar)),
+              aes(label = name, col = name), hjust = 0, nudge_x = 0.1) +
+    scale_x_continuous(expand = expansion(), 
+                       limits = c(1991, 2023.5),
+                       breaks = c(1992, 1995, 2000, 2005, 2010, 2015, 2020)) +
+    scale_y_continuous(limits = c(0, 1), 
+                       breaks = c(1 - range(plot_dat$value/100), 0, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 1),
+                       expand = expansion(),
+                       labels = label_percent()) +
+    scale_colour_brewer(type = "qual", palette = "Set1", direction = -1) +
+    theme_tufte() +
+    theme(legend.position = "none") +
+    labs(x = NULL,
+         y = NULL,
+         title = "Hlutfall para í sambúð sem eiga nóg ráðstöfunarfé til að borga neysluviðmið Félags- og vinnumarkaðsráðuneytisins frá 2019",
+         subtitle = "Neysluviðmiðið er leiðrétt fyrir árlegri verðbólgu samkvæmt Seðlabanka til að bera saman við laun annarra ára")
+
+p
+
+ggsave(plot = p, filename = "neysluvidmid_par.png",
+       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
+```
+
