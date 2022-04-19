@@ -1,5 +1,6 @@
 ---
-title: "Neysluviðmið"
+title: "Ráðstöfunartekjur og Neysluviðmið"
+subtitle: "Hver eiga efni og á hversu miklu?"
 author: 
     -   name: "Brynjólfur Gauti Guðrúnar Jónsson"
         url: "https://twitter.com/bgautijonsson"
@@ -31,6 +32,7 @@ library(ggthemes)
 library(kableExtra)
 library(gganimate)
 library(lubridate)
+library(geomtextpath)
 ```
 
 # Staðtölur skatta
@@ -48,9 +50,73 @@ d_tiund <- read_excel("V_HJUSKAPUR_TEKJUBIL_EINST.xlsx") |>
               radst_tekjur = heildartekjur - skattar - lifeyrirsgreidslur,
               tekjuar = unique(as.numeric(tekjuar)),
               einst_radst = radst_tekjur/fjoldi,
+              einst_heildartekjur = heildartekjur / fjoldi,
               .groups = "drop") |> 
-    select(tekjuar, tekjubil, fjoldi, radst_tekjur, einst_radst) |> 
+    select(tekjuar, tekjubil, fjoldi, radst_tekjur, einst_radst, einst_heildartekjur) |> 
     arrange(tekjuar, tekjubil)
+```
+
+## Heildartekjur
+
+```{r, fig.width = 10, figh.asp = 0.621, out.width = "100%"}
+p <- d_tiund |> 
+    ggplot(aes(tekjuar, einst_heildartekjur, col = tekjubil, group = tekjubil)) +
+    geom_line() +
+    geom_rangeframe(colour = "black") +
+    scale_y_log10(labels = label_number(accuracy = 100), 
+                  breaks = c(min(d_tiund$einst_heildartekjur),
+                             max(d_tiund$einst_heildartekjur),
+                             3e5,
+                             1e6, 3e6,
+                             1e7)) +
+    scale_x_continuous(breaks = c(1992, 2000, 2010, 2020)) +
+    scale_color_distiller(type = "div", palette = "RdBu", 
+                          breaks = c(5, 25, 50, 75, 95),
+                          guide = guide_colorbar(reverse = F, barheight = unit(150, "points"))) +
+    theme_tufte() +
+    labs(x = "Tekjuár",
+         y = "Ráðstöfunartekjur meðaleinstaklings",
+         colour = "Hundraðshl.\ntekna",
+         title = "Þróun ráðstöfunartekna meðaleinstaklings eftir hundraðshlutamarki (percentile) tekna") +
+    theme(legend.position = c(1, 0.8), 
+          plot.margin = margin(t = 5, r = 65, b = 5, l = 5), plot.title.position = "panel") 
+
+
+p
+
+
+ggsave(plot = p, filename = "heild_tekjur_yearly.png",
+       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
+```
+
+```{r, fig.width = 10, figh.asp = 0.621, out.width = "100%"}
+p <- d_tiund |> 
+    ggplot(aes(tekjubil, einst_heildartekjur, col = tekjuar, group = tekjuar)) +
+    geom_line() +
+    geom_rangeframe(colour = "black") +
+    scale_y_log10(labels = label_number(accuracy = 100), breaks = c(min(d_tiund$einst_heildartekjur),
+                                                                    max(d_tiund$einst_heildartekjur),
+                                                                    3e5,
+                                                                    1e6, 3e6,
+                                                                    1e7)) +
+    scale_x_continuous(breaks = c(5, 25, 50, 75, 95)) +
+    scale_color_distiller(type = "div", palette = "RdBu", 
+                          breaks = c(1992, 2000, 2010, 2020),
+                          guide = guide_colorbar(reverse = F, barheight = unit(105, "points"))) +
+    theme_tufte() +
+    labs(x = "Hundraðshlutamark tekna (Percentile)",
+         y = "Ráðstöfunartekjur meðaleinstaklings",
+         colour = "Tekjuár",
+         title = "Ráðstöfunartekjur meðaleinstaklings eftir hundraðshlutamarki (percentile) tekna") +
+    theme(legend.position = c(0.995, 0.84), 
+          plot.margin = margin(t = 5, r = 65, b = 5, l = 5), plot.title.position = "panel") 
+
+
+p
+
+
+ggsave(plot = p, filename = "heild_tekjur.png",
+       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
 ```
 
 
@@ -157,91 +223,18 @@ d <- d_fast |>
     )
 ```
 
-
-```{r}
-vidmid_med_barn <- 4795956
-vidmid_med_bil <- 3461490
-vidmid_an_bils <- 2581034
-
-neysluvidmid_par <- read_excel("SI_Export_20220412163500976.xlsx", skip = 11, 
-           col_names = c("dags", "verdbolga", "markmid")) |> 
-    mutate(dags = lubridate::dmy(dags),
-           ar = year(dags)) |> 
-    filter(month(dags) == 1) |> 
-    select(ar, verdbolga) |> 
-    mutate(verdbolga = 1 + verdbolga / 100,
-           uppsofnud_bolga = exp(cumsum(log(verdbolga))),
-           verdbolga_mv_2019 = uppsofnud_bolga / uppsofnud_bolga[ar == 2019],
-           neysluvidmid_2019_barn = vidmid_med_barn,
-           neysluvidmid_2019_bill = vidmid_med_bil,
-           neysluvidmid_2019_ekki_bill = vidmid_an_bils,
-           neysluvidmid_barn = neysluvidmid_2019_barn * verdbolga_mv_2019,
-           neysluvidmid_bill = neysluvidmid_2019_bill * verdbolga_mv_2019,
-           neysluvidmid_ekki_bill = neysluvidmid_2019_ekki_bill * verdbolga_mv_2019) |> 
-    select(tekjuar = ar, neysluvidmid_barn, neysluvidmid_bill, neysluvidmid_ekki_bill, verdbolga)
-
-
-
-```
-
-```{r, fig.asp = 0.5}
-plot_dat <- d |> 
-    inner_join(
-        neysluvidmid_par,
-        by = "tekjuar"
-    ) |> 
-    mutate(einst_auka_bill = 2 * einst_radst - neysluvidmid_bill,
-           einst_auka_ekki_bill = 2 * einst_radst - neysluvidmid_ekki_bill,
-           einst_auka_fasteign = 2 * einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
-           einst_auka_barn = 2 * einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
-    group_by(tekjuar) |> 
-    summarise(min_bill = min(tekjubil[einst_auka_bill >= 0]),
-              min_ekki_bill = min(tekjubil[einst_auka_ekki_bill >= 0]),
-              min_fasteign = min(tekjubil[einst_auka_fasteign >= 0]),
-              min_barn = min(tekjubil[einst_auka_barn >= 0])) |> 
-    rename("+ bíll" = min_bill, "Par" = min_ekki_bill, "+ húsnæðislán" = min_fasteign, "+ barn" = min_barn) |> 
-    pivot_longer(c(-tekjuar)) |> 
-    drop_na()
-
-
-p <- plot_dat |> 
-    ggplot(aes(tekjuar, 1 - value/100)) +
-    geom_line(aes(col = name, lty = name, group = name)) +
-    geom_rangeframe() +
-    geom_text(data = plot_dat |> filter(tekjuar == max(tekjuar)),
-              aes(label = name, col = name), hjust = 0, nudge_x = 0.1) +
-    scale_x_continuous(expand = expansion(), 
-                       limits = c(1991, 2023.5),
-                       breaks = c(1992, 1995, 2000, 2005, 2010, 2015, 2020)) +
-    scale_y_continuous(limits = c(0, 1), 
-                       breaks = c(1 - range(plot_dat$value/100), 0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1),
-                       expand = expansion(),
-                       labels = label_percent()) +
-    scale_colour_brewer(type = "qual", palette = "Set1", direction = -1) +
-    theme_tufte() +
-    theme(legend.position = "none") +
-    labs(x = NULL,
-         y = NULL,
-         title = "Hlutfall para í sambúð sem eiga nóg ráðstöfunarfé til að borga neysluviðmið Félags- og vinnumarkaðsráðuneytisins frá 2019",
-         subtitle = "Neysluviðmiðið er leiðrétt fyrir árlegri verðbólgu samkvæmt Seðlabanka til að bera saman við laun annarra ára")
-
-p
-
-ggsave(plot = p, filename = "neysluvidmid_par.png",
-       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
-```
-
 # Neysluviðmið
 
 ## Einstaklingur
 
 ```{r}
-vidmid_med_barn <- 3615009
-vidmid_med_bil <- 2376555
 vidmid_an_bils <- 1568899
+vidmid_med_bil <- 2376555
+vidmid_med_barn <- 3615009
+
 
 neysluvidmid_einst <- read_excel("SI_Export_20220412163500976.xlsx", skip = 11, 
-           col_names = c("dags", "verdbolga", "markmid")) |> 
+                                 col_names = c("dags", "verdbolga", "markmid")) |> 
     mutate(dags = lubridate::dmy(dags),
            ar = year(dags)) |> 
     filter(month(dags) == 1) |> 
@@ -312,13 +305,15 @@ ggsave(plot = p, filename = "neysluvidmid.png",
 
 ## Par
 
+
+
 ```{r}
-vidmid_med_barn <- 4795956
-vidmid_med_bil <- 3461490
 vidmid_an_bils <- 2581034
+vidmid_med_bil <- 3461490
+vidmid_med_barn <- 4795956
 
 neysluvidmid_par <- read_excel("SI_Export_20220412163500976.xlsx", skip = 11, 
-           col_names = c("dags", "verdbolga", "markmid")) |> 
+                               col_names = c("dags", "verdbolga", "markmid")) |> 
     mutate(dags = lubridate::dmy(dags),
            ar = year(dags)) |> 
     filter(month(dags) == 1) |> 
@@ -341,7 +336,7 @@ neysluvidmid_par <- read_excel("SI_Export_20220412163500976.xlsx", skip = 11,
 ```{r, fig.asp = 0.5}
 plot_dat <- d |> 
     inner_join(
-        neysluvidmid_einst,
+        neysluvidmid_par,
         by = "tekjuar"
     ) |> 
     mutate(einst_auka_bill = 2 * einst_radst - neysluvidmid_bill,
@@ -385,3 +380,202 @@ ggsave(plot = p, filename = "neysluvidmid_par.png",
        width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
 ```
 
+## Saman
+
+```{r, fig.width = 12, fig.asp = 0.5, out.width = "100%"}
+plot_dat <- d |> 
+    inner_join(
+        neysluvidmid_einst,
+        by = "tekjuar"
+    ) |> 
+    mutate(einst_auka_bill = einst_radst - neysluvidmid_bill,
+           einst_auka_ekki_bill = einst_radst - neysluvidmid_ekki_bill,
+           einst_auka_fasteign = einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
+           einst_auka_barn = einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+    group_by(tekjuar) |> 
+    summarise(min_bill = min(tekjubil[einst_auka_bill >= 0]),
+              min_ekki_bill = min(tekjubil[einst_auka_ekki_bill >= 0]),
+              min_fasteign = min(tekjubil[einst_auka_fasteign >= 0]),
+              min_barn = min(tekjubil[einst_auka_barn >= 0])) |> 
+    rename("+ bíll" = min_bill, "Dæmigerð" = min_ekki_bill, "+ húsnæðislán" = min_fasteign, "+ barn" = min_barn) |> 
+    pivot_longer(c(-tekjuar)) |> 
+    drop_na() |> 
+    mutate(type = "Einstaklingur") |> 
+    bind_rows(
+        d |> 
+            inner_join(
+                neysluvidmid_par,
+                by = "tekjuar"
+            ) |> 
+            mutate(einst_auka_bill = 2 * einst_radst - neysluvidmid_bill,
+                   einst_auka_ekki_bill = 2 * einst_radst - neysluvidmid_ekki_bill,
+                   einst_auka_fasteign = 2 * einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
+                   einst_auka_barn = 2 * einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+            group_by(tekjuar) |> 
+            summarise(min_bill = min(tekjubil[einst_auka_bill >= 0]),
+                      min_ekki_bill = min(tekjubil[einst_auka_ekki_bill >= 0]),
+                      min_fasteign = min(tekjubil[einst_auka_fasteign >= 0]),
+                      min_barn = min(tekjubil[einst_auka_barn >= 0])) |> 
+            rename("Dæmigerð" = min_ekki_bill, "+ bíll" = min_bill, "+ húsnæðislán" = min_fasteign, "+ barn" = min_barn) |> 
+            pivot_longer(c(-tekjuar)) |> 
+            drop_na() |> 
+            mutate(type = "Par í sambúð")
+    )
+
+
+p <- plot_dat |> 
+    ggplot(aes(tekjuar, 1 - value/100)) +
+    geom_line(aes(col = name, lty = name, group = name)) +
+    geom_rangeframe() +
+    geom_text(data = plot_dat |> filter(tekjuar == max(tekjuar)),
+              aes(label = name, col = name), hjust = 0, nudge_x = 0.1) +
+    facet_wrap("type") +
+    scale_x_continuous(expand = expansion(), 
+                       limits = c(1991, 2025.5),
+                       breaks = c(1992, 1995, 2000, 2005, 2010, 2015, 2020)) +
+    scale_y_continuous(limits = c(0, 1), 
+                       breaks = c(1 - range(plot_dat$value/100), 0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1),
+                       expand = expansion(),
+                       labels = label_percent()) +
+    scale_colour_brewer(type = "qual", palette = "Set1", direction = -1) +
+    theme_tufte() +
+    theme(legend.position = "none",
+          strip.background = element_rect(fill = "#f0f0f0"),
+          strip.text = element_text(size = 10)) +
+    labs(x = NULL,
+         y = NULL,
+         title = "Hlutfall einstaklinga og para sem eiga nóg ráðstöfunarfé til að borga neysluviðmið Félags- og vinnumarkaðsráðuneytisins frá 2019",
+         subtitle = "Neysluviðmiðið er leiðrétt fyrir árlegri verðbólgu til að bera saman við ráðstöfunartekjur annarra ára")
+
+
+ggsave(plot = p, filename = "neysluvidmid_saman.png",
+       width = 8, height = 0.4 * 8, scale = 1.7, bg = "white")
+
+p
+
+```
+
+# Neysluviðmið og ráðstöfunartekjur
+
+## Einstaklingur
+
+```{r, fig.width = 12, fig.asp = 0.5, out.width = "100%"}
+plot_dat <- d |> 
+    inner_join(
+        neysluvidmid_einst,
+        by = "tekjuar"
+    ) |> 
+    mutate(einst_auka_bill = einst_radst - neysluvidmid_bill,
+           einst_auka_ekki_bill = einst_radst - neysluvidmid_ekki_bill,
+           einst_auka_fasteign = einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
+           einst_auka_barn = einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+    select(tekjuar, tekjubil, einst_radst, starts_with("einst_auka")) |> 
+    mutate(group = case_when(einst_auka_ekki_bill <= 0 ~ "1",
+                             einst_auka_bill <= 0 ~ "2",
+                             einst_auka_fasteign <= 0 ~ "3",
+                             einst_auka_barn <= 0 ~ "4",
+                             TRUE ~ "5") |> 
+               factor(labels = c("Engum", 
+                                 "Dæmig.", 
+                                 "Bíl", 
+                                 "Fasteign", 
+                                 "Barni")))
+
+p <- plot_dat |> 
+    # filter(tekjuar == min(tekjuar)) |>
+    # filter(tekjuar >= 2016) |> 
+    ggplot(aes(tekjubil, einst_radst/ 12)) +
+    geom_textsmooth(aes(col = group, group = group, label = group), 
+                    fontface = 2, method = "loess", formula = y ~ x, size = 3) +
+    geom_rangeframe() +
+    scale_x_continuous(breaks = c(5, 25, 50, 75, 95),
+                       limits = c(5, 95),
+                       expand = expansion()) +
+    scale_y_log10(labels = label_number(accuracy = 100), 
+                  breaks = c(range(d_tiund$einst_radst) / 12,
+                             1e4, 3e4,
+                             1e5, 3e5),
+                  limits = range(d_tiund$einst_radst) / 12) +
+    scale_colour_brewer(type = "qual", palette = "Set1") +
+    theme_cowplot(font_size = 10) +
+    theme(legend.position = "none",
+          plot.margin = margin(t = 5, r = 10, b = 5, l = 5)) +
+    labs(x = "Tekjubil",
+         y = NULL,
+         colour = NULL,
+         title = "Fyrir hvaða hluta neysluviðmiðanna duga ráðstöfunartekjur?",
+         subtitle = "Ár: {frame_time}") +
+    transition_time(
+        time = as.integer(tekjuar)
+    ) +
+    ease_aes("cubic-in-out") +
+    shadow_trail(distance = 0.01, alpha = 0.05, size = 0.3, label = "")
+
+
+p_vid <- animate(p, width = 8, height = 0.5 * 8, unit = "in", res = 250, fps = 10, duration = 10,
+                 renderer = ffmpeg_renderer(format = "mp4"))
+
+anim_save(filename = "neysluvidmid_animation.mp4", animation = p_vid)
+```
+
+## Par
+
+```{r, fig.width = 12, fig.asp = 0.5, out.width = "100%"}
+plot_dat <- d |> 
+    inner_join(
+        neysluvidmid_par,
+        by = "tekjuar"
+    ) |> 
+    mutate(einst_auka_bill = 2 * einst_radst - neysluvidmid_bill,
+           einst_auka_ekki_bill = 2 * einst_radst - neysluvidmid_ekki_bill,
+           einst_auka_fasteign = 2 * einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
+           einst_auka_barn = 2 * einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+    select(tekjuar, tekjubil, einst_radst, starts_with("einst_auka")) |> 
+    mutate(group = case_when(einst_auka_ekki_bill <= 0 ~ "1",
+                             einst_auka_bill <= 0 ~ "2",
+                             einst_auka_fasteign <= 0 ~ "3",
+                             einst_auka_barn <= 0 ~ "4",
+                             TRUE ~ "5") |> 
+               factor(labels = c("Engum", 
+                                 "Dæmig.", 
+                                 "Bíl", 
+                                 "Fasteign", 
+                                 "Barni")))
+
+p <- plot_dat |> 
+    # filter(tekjuar == min(tekjuar)) |>
+    # filter(tekjuar >= 2016) |> 
+    ggplot(aes(tekjubil, 2 * einst_radst / 12)) +
+    geom_textsmooth(aes(col = group, group = group, label = group), 
+                    fontface = 2, method = "loess", formula = y ~ x, size = 3) +
+    geom_rangeframe() +
+    scale_x_continuous(breaks = c(5, 25, 50, 75, 95),
+                       limits = c(5, 95),
+                       expand = expansion()) +
+    scale_y_log10(labels = label_number(accuracy = 100), 
+                  breaks = c(2 * range(d_tiund$einst_radst) / 12,
+                             3e4,
+                             1e5, 3e5,
+                             1e6),
+                  limits = 2 * range(d_tiund$einst_radst) / 12) +
+    scale_colour_brewer(type = "qual", palette = "Set1") +
+    theme_cowplot(font_size = 10) +
+    theme(legend.position = "none",
+          plot.margin = margin(t = 5, r = 10, b = 5, l = 5)) +
+    labs(x = "Tekjubil",
+         y = NULL,
+         colour = NULL,
+         title = "Fyrir hvaða hluta neysluviðmiðanna duga ráðstöfunartekjur?",
+         subtitle = "Ár: {frame_time}") +
+    transition_time(
+        time = as.integer(tekjuar)
+    ) +
+    ease_aes("cubic-in-out") +
+    shadow_trail(distance = 0.01, alpha = 0.05, size = 0.3, label = "")
+
+
+p_vid <- animate(p, width = 8, height = 0.5 * 8, unit = "in", res = 250, fps = 10, duration = 10,
+                 renderer = ffmpeg_renderer(format = "mp4"))
+
+anim_save(filename = "neysluvidmid_animation_par.mp4", animation = p_vid)
+```
