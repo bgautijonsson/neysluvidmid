@@ -591,7 +591,7 @@ p_vid <- animate(p, width = 8, height = 0.5 * 8, unit = "in", res = 250, fps = 1
 anim_save(filename = "neysluvidmid_animation_par.mp4", animation = p_vid)
 ```
 
-# Hlutfall tekna sem er laust í fjárfestingar
+# Eignasköpunartekjur
 
 ```{r}
 tekjur_einst <- read_excel("V_HJUSKAPUR_TEKJUBIL_EINST.xlsx") |> 
@@ -649,7 +649,8 @@ p <- tekjur_einst |>
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
          title = "Ráðstöfunartekjur sem hlutfall af heildartekjum eftir tekjubili",
-         subtitle = "Ráðstöfunartekjur: Heilartekjur - skattar - lífeyrisgreiðslur")
+         subtitle = "Ráðstöfunartekjur: Heilartekjur - skattar - lífeyrisgreiðslur",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
 ggsave(plot = p, filename = "hlutfall_radsttekna_heildartekjum.png",
        width = 8, height = 0.5 * 8, scale = 1.7, bg = "white")
@@ -685,7 +686,8 @@ p <- plot_dat |>
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
          title = "Eignasköpunartekjur sem hlutfall af heildartekjum eftir tekjubili",
-         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum neysluviðmiðum einstaklinga án bíls, barns né fasteignar (130.000kr á mánuði)")
+         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum neysluviðmiðum einstaklinga án bíls, barns né fasteignar (130.000kr á mánuði 2019)",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
 
 
@@ -721,7 +723,8 @@ p <- plot_dat |>
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
          title = "Eignasköpunartekjur sem hlutfall af heildartekjum eftir tekjubili",
-         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum neysluviðmiðum einstaklinga án bíls, barns né fasteignar (130.000kr á mánuði 2019)")
+         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum neysluviðmiðum einstaklinga án bíls, barns né fasteignar (130.000kr á mánuði 2019)",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
 
 
@@ -759,7 +762,8 @@ p <- plot_dat |>
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
          title = "Eignasköpunartekjur einstaklinga eftir tekjubili",
-         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum neysluviðmiðum einstaklinga án bíls, barns né fasteignar (130.000kr á mánuði)")
+         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum neysluviðmiðum einstaklinga án bíls, barns né fasteignar (130.000kr á mánuði 2019)",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
 
 p
@@ -779,22 +783,26 @@ plot_dat <- tekjur_einst |>
     mutate(hlutf = value / einst_heildartekjur,
            hlutf = pmax(hlutf, 0),
            name = fct_recode(name,
-                             "Regluleg neysluviðmið" = "einst_auka_ekki_bill",
-                             "+ bíll" = "einst_auka_bill",
-                             "+ húsnæðislán" = "einst_auka_fasteign",
-                             "+ barn" = "einst_auka_barn") |> 
-               fct_relevel("Regluleg neysluviðmið", "+ bíll", "+ húsnæðislán", "+ barn"))
+                             "Regluleg neysluviðmið (130.00kr/mán)" = "einst_auka_ekki_bill",
+                             "+ bíll (198.000kr/mán)" = "einst_auka_bill",
+                             "+ húsnæðislán (313.00kr/mán)" = "einst_auka_fasteign",
+                             "+ barn (415.000kr/mán)" = "einst_auka_barn") |> 
+               fct_relevel("Regluleg neysluviðmið (130.00kr/mán)",
+                           "+ bíll (198.000kr/mán)", 
+                           "+ húsnæðislán (313.00kr/mán)", 
+                           "+ barn (415.000kr/mán)"))
 
 
 p <- plot_dat |> 
     ggplot(aes(tekjubil/100, hlutf, fill = name)) +
     geom_area(position = "identity", alpha = 0.7, col = NA) +
-    geom_textline(aes(label = name), hjust = "ymid", text_smoothing = 30, size = 5) +
+    geom_textline(aes(label = name, hjust = name), text_smoothing = 30, size = 5.5) +
     scale_x_continuous(breaks = c(0, 25, 50, 75, 100)/100,
                        labels = label_percent(),
                        limits = c(0, 1)) +
     scale_y_continuous(labels = label_percent(), limits = c(0, 1)) +
     scale_fill_brewer() +
+    scale_hjust_manual(values = c(0.3, 0.5, 0.8, 0.9)) +
     scale_colour_brewer() +
     coord_cartesian(expand = F) +
     theme_half_open() +
@@ -802,8 +810,9 @@ p <- plot_dat |>
           legend.position = "none") +
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
-         title = "Hlutfall heildartekna sem einstaklingur getur notað í fjárfestingar og eignasköpun",
-         subtitle = "Reiknað með því að draga skatta og neysluviðmið frá heildartekjum og deila upp í með heildartekjum")
+         title = "Eignasköpunartekjur sem hlutfall af heildartekjum eftir tekjubili",
+         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum verðlagsleiðréttum neysluviðmiðum Félags- og vinnumarkaðsráðuneytisins fyrir einstaklinga frá 2019",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
 p
 
@@ -822,18 +831,21 @@ plot_dat <- tekjur_einst |>
     mutate(hlutf = value / einst_heildartekjur,
            hlutf = pmax(hlutf, 0),
            name = fct_recode(name,
-                             "Regluleg neysluviðmið" = "einst_auka_ekki_bill",
-                             "+ bíll" = "einst_auka_bill",
-                             "+ húsnæðislán" = "einst_auka_fasteign",
-                             "+ barn" = "einst_auka_barn") |> 
-               fct_relevel("Regluleg neysluviðmið", "+ bíll", "+ húsnæðislán", "+ barn"),
+                             "Regluleg neysluviðmið (130.00kr/mán)" = "einst_auka_ekki_bill",
+                             "+ bíll (198.000kr/mán)" = "einst_auka_bill",
+                             "+ húsnæðislán (313.00kr/mán)" = "einst_auka_fasteign",
+                             "+ barn (415.000kr/mán)" = "einst_auka_barn") |> 
+               fct_relevel("Regluleg neysluviðmið (130.00kr/mán)",
+                           "+ bíll (198.000kr/mán)", 
+                           "+ húsnæðislán (313.00kr/mán)", 
+                           "+ barn (415.000kr/mán)"),
            value = value / 12)
 
 
 p <- plot_dat |> 
     ggplot(aes(tekjubil/100, value, fill = name)) +
     geom_area(position = "identity", alpha = 0.7, col = NA) +
-    geom_textline(aes(label = name), hjust = 0.85, text_smoothing = 30, size = 5) +
+    geom_textline(aes(label = name, hjust = name), text_smoothing = 30, size = 5.5) +
     scale_x_continuous(breaks = c(0, 25, 50, 75, 100)/100,
                        labels = label_percent(),
                        limits = c(0, 1)) +
@@ -842,14 +854,16 @@ p <- plot_dat |>
                        breaks = c(1e4, 3e4, 1e5, 3e5, 1e6, 3e6, 1e7, max(plot_dat$value))) +
     scale_fill_brewer() +
     scale_colour_brewer() +
-    coord_cartesian(expand = F, ylim = c(10000, NA)) +
+    scale_hjust_manual(values = c(0.8, 0.85, 0.9, 0.92)) +
+    coord_cartesian(expand = F, ylim = c(30000, NA)) +
     theme_half_open() +
     theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
           legend.position = "none") +
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
          title = "Heildarfé sem einstaklingur getur notað í fjárfestingar og eignasköpun á mánuði",
-         subtitle = "Reiknað með því að draga skatta og neysluviðmið frá heildartekjum")
+         subtitle = "Reiknað með því að draga skatta og neysluviðmið frá heildartekjum",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
 p
 
