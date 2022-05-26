@@ -354,7 +354,8 @@ p <- plot_dat |>
                        labels = label_percent()) +
     scale_colour_brewer(type = "qual", palette = "Set1", direction = -1) +
     theme_tufte() +
-    theme(legend.position = "none") +
+    theme(legend.position = "none",
+          plot.title = element_text(face = "bold")) +
     labs(x = NULL,
          y = NULL,
          title = "Hlutfall einstaklinga sem eiga nóg ráðstöfunarfé til að borga neysluviðmið Félags- og vinnumarkaðsráðuneytisins frá 2019",
@@ -434,7 +435,8 @@ p <- plot_dat |>
                        labels = label_percent()) +
     scale_colour_brewer(type = "qual", palette = "Set1", direction = -1) +
     theme_tufte() +
-    theme(legend.position = "none") +
+    theme(legend.position = "none",
+          plot.title = element_text(face = "bold")) +
     labs(x = NULL,
          y = NULL,
          title = "Hlutfall para í sambúð sem eiga nóg ráðstöfunarfé til að borga neysluviðmið Félags- og vinnumarkaðsráðuneytisins frá 2019",
@@ -508,7 +510,8 @@ p <- plot_dat |>
     theme_tufte() +
     theme(legend.position = "none",
           strip.background = element_rect(fill = "#f0f0f0"),
-          strip.text = element_text(size = 10)) +
+          strip.text = element_text(size = 10),
+          plot.title = element_text(face = "bold")) +
     labs(x = NULL,
          y = NULL,
          title = "Hlutfall einstaklinga og para sem eiga nóg ráðstöfunarfé til að borga neysluviðmið Félags- og vinnumarkaðsráðuneytisins frá 2019",
@@ -517,7 +520,7 @@ p <- plot_dat |>
 
 
 ggsave(plot = p, filename = "neysluvidmid_saman.png",
-       width = 8, height = 0.4 * 8, scale = 1.7, bg = "white")
+       width = 8, height = 0.5 * 8, scale = 1.7, bg = "white")
 
 p
 
