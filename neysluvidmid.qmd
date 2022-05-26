@@ -189,6 +189,8 @@ ggsave(plot = p, filename = "radst_tekjur.png",
 
 # Þjóðskrá
 
+## Kaupverð
+
 ```{r}
 d_fast <- read_csv2("hverfaverd_fjolbyli_ar.csv",
                     locale = locale("is", encoding = "ISO-8859-1")) |> 
@@ -229,6 +231,63 @@ d <- d_fast |>
     )
 ```
 
+## Leiguverð
+
+```{r}
+d_leiga <- read_csv2("verd_e_baejum_ar.csv",
+         locale = locale("is", encoding = "ISO-8859-1")) |> 
+    janitor::clean_names() |> 
+    filter(svaedi %in% c("Breiðholt",
+                         "Reykjavík, austan Kringlumýrarbrautar",
+                         "Reykjavík, vestan Kringlumýrarbrautar og Seltjarnarnes",
+                         "Kópavogur",
+                         "Kjalarnes og Mosfellsbær",
+                         "Grafarvogur, Grafarholt, Árbær, Norðlingaholt og Úlfarsárdalur",
+                         "Garðabær, Hafnarfjörður og Álftanes"),
+           fjoldi_herbergja == "3") |> 
+    group_by(ar) |> 
+    summarise(n = sum(fjoldi_samninga),
+              fermetraverd = sum(fjoldi_samninga * medalfermetraverd) / n,
+              leiguverd = fermetraverd * 80 * 12,
+              .groups = "drop") |> 
+    select(tekjuar = ar, leiguverd)
+```
+
+```{r, fig.width = 10, figh.asp = 0.621, out.width = "100%"}
+p <- d_leiga |> 
+    ggplot(aes(tekjuar, leiguverd / 12)) +
+    geom_line() +
+    geom_rangeframe() +
+    scale_x_continuous(breaks = 2011:2022) +
+    scale_y_continuous(labels = label_number(accuracy = 1e3, big.mark = ".", decimal.mark = ",", suffix = "kr"),
+                       breaks = c(min(d_leiga$leiguverd/12), max(d_leiga$leiguverd/12),
+                                  1.5e5,2e5)) +
+    theme_tufte() +
+    labs(x = "Ár",
+         y = "Meðalleiguverð 80fm íbúðar",
+         title = "Þróun meðalleiguverðs 80fm þriggja herbergja íbúðar",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
+
+p
+
+ggsave(plot = p, filename = "medalleiguverdverd_fjolbylis.png",
+       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
+```
+
+
+```{r}
+d_leiga |> 
+    inner_join(
+        d_fast,
+        by = "tekjuar"
+    ) |> 
+    mutate(hlutf = leiguverd / kaupverd) |> 
+    ggplot(aes(tekjuar, hlutf)) +
+    geom_line()
+```
+
+
+
 # Neysluviðmið
 
 ## Einstaklingur
@@ -268,14 +327,14 @@ plot_dat <- d |>
     ) |> 
     mutate(einst_auka_bill = einst_radst - neysluvidmid_bill,
            einst_auka_ekki_bill = einst_radst - neysluvidmid_ekki_bill,
-           einst_auka_fasteign = einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
-           einst_auka_barn = einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+           einst_auka_fasteign = einst_radst - neysluvidmid_bill - kaupverd * 0.055,
+           einst_auka_barn = einst_radst - neysluvidmid_barn - kaupverd * 0.055) |> 
     group_by(tekjuar) |> 
     summarise(min_bill = min(tekjubil[einst_auka_bill >= 0]),
               min_ekki_bill = min(tekjubil[einst_auka_ekki_bill >= 0]),
               min_fasteign = min(tekjubil[einst_auka_fasteign >= 0]),
               min_barn = min(tekjubil[einst_auka_barn >= 0])) |> 
-    rename("+ bíll" = min_bill, "Einstaklingur" = min_ekki_bill, "+ húsnæðislán" = min_fasteign, "+ barn" = min_barn) |> 
+    rename("+ bíll" = min_bill, "Einstaklingur" = min_ekki_bill, "+ leiguhúsnæði" = min_fasteign, "+ barn" = min_barn) |> 
     pivot_longer(c(-tekjuar)) |> 
     drop_na()
 
@@ -348,14 +407,14 @@ plot_dat <- d |>
     ) |> 
     mutate(einst_auka_bill = 2 * einst_radst - neysluvidmid_bill,
            einst_auka_ekki_bill = 2 * einst_radst - neysluvidmid_ekki_bill,
-           einst_auka_fasteign = 2 * einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
-           einst_auka_barn = 2 * einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+           einst_auka_fasteign = 2 * einst_radst - neysluvidmid_bill - kaupverd * 0.055,
+           einst_auka_barn = 2 * einst_radst - neysluvidmid_barn - kaupverd * 0.055) |> 
     group_by(tekjuar) |> 
     summarise(min_bill = min(tekjubil[einst_auka_bill >= 0]),
               min_ekki_bill = min(tekjubil[einst_auka_ekki_bill >= 0]),
               min_fasteign = min(tekjubil[einst_auka_fasteign >= 0]),
               min_barn = min(tekjubil[einst_auka_barn >= 0])) |> 
-    rename("Par" = min_ekki_bill, "+ bíll" = min_bill, "+ húsnæðislán" = min_fasteign, "+ barn" = min_barn) |> 
+    rename("Par" = min_ekki_bill, "+ bíll" = min_bill, "+ leiguhúsnæði" = min_fasteign, "+ barn" = min_barn) |> 
     pivot_longer(c(-tekjuar)) |> 
     drop_na()
 
@@ -370,7 +429,7 @@ p <- plot_dat |>
                        limits = c(1991, 2023.5),
                        breaks = c(1992, 1995, 2000, 2005, 2010, 2015, 2020)) +
     scale_y_continuous(limits = c(0, 1), 
-                       breaks = c(1 - range(plot_dat$value/100), 0, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 1),
+                       breaks = c(1 - range(plot_dat$value/100), 0, 0.2, 0.4, 0.6, 0.7, 0.8, 1),
                        expand = expansion(),
                        labels = label_percent()) +
     scale_colour_brewer(type = "qual", palette = "Set1", direction = -1) +
@@ -398,14 +457,14 @@ plot_dat <- d |>
     ) |> 
     mutate(einst_auka_bill = einst_radst - neysluvidmid_bill,
            einst_auka_ekki_bill = einst_radst - neysluvidmid_ekki_bill,
-           einst_auka_fasteign = einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
-           einst_auka_barn = einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+           einst_auka_fasteign = einst_radst - neysluvidmid_bill - kaupverd * 0.055,
+           einst_auka_barn = einst_radst - neysluvidmid_barn - kaupverd * 0.055) |> 
     group_by(tekjuar) |> 
     summarise(min_bill = min(tekjubil[einst_auka_bill >= 0]),
               min_ekki_bill = min(tekjubil[einst_auka_ekki_bill >= 0]),
               min_fasteign = min(tekjubil[einst_auka_fasteign >= 0]),
               min_barn = min(tekjubil[einst_auka_barn >= 0])) |> 
-    rename("+ bíll" = min_bill, "Dæmigerð" = min_ekki_bill, "+ húsnæðislán" = min_fasteign, "+ barn" = min_barn) |> 
+    rename("+ bíll" = min_bill, "Dæmigerð" = min_ekki_bill, "+ leiguhúsnæði" = min_fasteign, "+ barn" = min_barn) |> 
     pivot_longer(c(-tekjuar)) |> 
     drop_na() |> 
     mutate(type = "Einstaklingur") |> 
@@ -417,14 +476,14 @@ plot_dat <- d |>
             ) |> 
             mutate(einst_auka_bill = 2 * einst_radst - neysluvidmid_bill,
                    einst_auka_ekki_bill = 2 * einst_radst - neysluvidmid_ekki_bill,
-                   einst_auka_fasteign = 2 * einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
-                   einst_auka_barn = 2 * einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+                   einst_auka_fasteign = 2 * einst_radst - neysluvidmid_bill - kaupverd * 0.055,
+                   einst_auka_barn = 2 * einst_radst - neysluvidmid_barn - kaupverd * 0.055) |> 
             group_by(tekjuar) |> 
             summarise(min_bill = min(tekjubil[einst_auka_bill >= 0]),
                       min_ekki_bill = min(tekjubil[einst_auka_ekki_bill >= 0]),
                       min_fasteign = min(tekjubil[einst_auka_fasteign >= 0]),
                       min_barn = min(tekjubil[einst_auka_barn >= 0])) |> 
-            rename("Dæmigerð" = min_ekki_bill, "+ bíll" = min_bill, "+ húsnæðislán" = min_fasteign, "+ barn" = min_barn) |> 
+            rename("Dæmigerð" = min_ekki_bill, "+ bíll" = min_bill, "+ leiguhúsnæði" = min_fasteign, "+ barn" = min_barn) |> 
             pivot_longer(c(-tekjuar)) |> 
             drop_na() |> 
             mutate(type = "Par í sambúð")
@@ -439,7 +498,7 @@ p <- plot_dat |>
               aes(label = name, col = name), hjust = 0, nudge_x = 0.1) +
     facet_wrap("type") +
     scale_x_continuous(expand = expansion(), 
-                       limits = c(1991, 2025.5),
+                       limits = c(1991, 2025.8),
                        breaks = c(1992, 1995, 2000, 2005, 2010, 2015, 2020)) +
     scale_y_continuous(limits = c(0, 1), 
                        breaks = c(1 - range(plot_dat$value/100), 0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1),
@@ -476,8 +535,8 @@ plot_dat <- d |>
     ) |> 
     mutate(einst_auka_bill = einst_radst - neysluvidmid_bill,
            einst_auka_ekki_bill = einst_radst - neysluvidmid_ekki_bill,
-           einst_auka_fasteign = einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
-           einst_auka_barn = einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+           einst_auka_fasteign = einst_radst - neysluvidmid_bill - kaupverd * 0.055,
+           einst_auka_barn = einst_radst - neysluvidmid_barn - kaupverd * 0.05) |> 
     select(tekjuar, tekjubil, einst_radst, starts_with("einst_auka")) |> 
     mutate(group = case_when(einst_auka_ekki_bill <= 0 ~ "1",
                              einst_auka_bill <= 0 ~ "2",
@@ -487,7 +546,7 @@ plot_dat <- d |>
                factor(labels = c("Engum", 
                                  "Dæmig.", 
                                  "Bíl", 
-                                 "Fasteign", 
+                                 "Leigu", 
                                  "Barni")))
 
 p <- plot_dat |> 
@@ -538,8 +597,8 @@ plot_dat <- d |>
     ) |> 
     mutate(einst_auka_bill = 2 * einst_radst - neysluvidmid_bill,
            einst_auka_ekki_bill = 2 * einst_radst - neysluvidmid_ekki_bill,
-           einst_auka_fasteign = 2 * einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
-           einst_auka_barn = 2 * einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)) |> 
+           einst_auka_fasteign = 2 * einst_radst - neysluvidmid_bill - kaupverd * 0.055,
+           einst_auka_barn = 2 * einst_radst - neysluvidmid_barn - kaupverd * 0.05) |> 
     select(tekjuar, tekjubil, einst_radst, starts_with("einst_auka")) |> 
     mutate(group = case_when(einst_auka_ekki_bill <= 0 ~ "1",
                              einst_auka_bill <= 0 ~ "2",
@@ -549,7 +608,7 @@ plot_dat <- d |>
                factor(labels = c("Engum", 
                                  "Dæmig.", 
                                  "Bíl", 
-                                 "Fasteign", 
+                                 "Leigu", 
                                  "Barni")))
 
 p <- plot_dat |> 
@@ -621,13 +680,35 @@ tekjur_einst <- read_excel("V_HJUSKAPUR_TEKJUBIL_EINST.xlsx") |>
         by = "tekjuar"
     ) |> 
     mutate(
+        neysluvidmid_fasteign = neysluvidmid_bill + kaupverd * 0.05,
+        neysluvidmid_barn = neysluvidmid_barn + kaupverd * 0.05,
         einst_auka_bill = einst_radst - neysluvidmid_bill,
         einst_auka_ekki_bill = einst_radst - neysluvidmid_ekki_bill,
-        einst_auka_fasteign = einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
-        einst_auka_barn = einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)
+        einst_auka_fasteign = einst_radst - neysluvidmid_fasteign,
+        einst_auka_barn = einst_radst - neysluvidmid_barn
     )
 
 ```
+
+```{r}
+tekjur_einst |> 
+    select(tekjuar, tekjubil, einst_auka_ekki_bill, fjoldi) |> 
+    filter(tekjubil %in% c(0:50) | tekjubil %in% c(50:100), tekjuar >= 2000) |> 
+    mutate(hopur = ifelse(tekjubil <= 50, "nedri", "efri")) |> 
+    group_by(tekjuar, hopur) |> 
+    summarise(heild = sum(einst_auka_ekki_bill * fjoldi),
+              fjoldi = sum(fjoldi),
+              .groups = "drop") |> 
+    mutate(einst_heild = heild / fjoldi) |> 
+    select(tekjuar, einst_heild, hopur) |> 
+    pivot_wider(names_from = hopur, values_from = einst_heild) |> 
+    mutate(hlutf = efri / nedri) |> 
+    ggplot(aes(tekjuar, hlutf)) +
+    geom_line() +
+    scale_y_continuous(limits = c(1, NA), expand = expansion(),
+                       breaks = c(1, 5, 10, 15, 20, 25))
+```
+
 
 ## Einstaklingur
 
@@ -698,13 +779,62 @@ ggsave(plot = p, filename = "hlutfall_tekna_eignaskopun.png",
 
 ```
 
+##### Eftir tegund neysluviðmiða
+
+```{r, fig.width = 12, fig.asp = 0.5, out.width = "100%", message = FALSE, warning = FALSE}
+
+plot_dat <- tekjur_einst |> 
+    pivot_longer(c(contains("einst_auka"))) |> 
+    select(tekjuar, tekjubil, einst_heildartekjur, name, value) |> 
+    filter(tekjuar %in% c(2020)) |>
+    mutate(hlutf = value / einst_heildartekjur,
+           hlutf = pmax(hlutf, 0),
+           name = fct_recode(name,
+                             "Regluleg neysluviðmið (159.00kr/mán)" = "einst_auka_ekki_bill",
+                             "+ bíll (241.000kr/mán)" = "einst_auka_bill",
+                             "+ leiga (510.00kr/mán)" = "einst_auka_fasteign",
+                             "+ barn (636.000kr/mán)" = "einst_auka_barn") |> 
+               fct_relevel("Regluleg neysluviðmið (159.00kr/mán)",
+                           "+ bíll (241.000kr/mán)", 
+                           "+ leiga (510.00kr/mán)", 
+                           "+ barn (636.000kr/mán)"))
+
+
+p <- plot_dat |> 
+    ggplot(aes(tekjubil/100, hlutf, fill = name)) +
+    geom_area(position = "identity", alpha = 0.7, col = NA) +
+    geom_textline(aes(label = name, hjust = name), text_smoothing = 30, size = 5.5) +
+    scale_x_continuous(breaks = c(0, 25, 50, 75, 100)/100,
+                       labels = label_percent(),
+                       limits = c(0, 1)) +
+    scale_y_continuous(labels = label_percent(), limits = c(0, 1)) +
+    scale_fill_brewer() +
+    scale_hjust_manual(values = c(0.3, 0.5, 0.8, 0.9)) +
+    scale_colour_brewer() +
+    coord_cartesian(expand = F) +
+    theme_half_open() +
+    theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
+          legend.position = "none") +
+    labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
+         y = NULL,
+         title = "Eignasköpunartekjur einstaklings sem hlutfall af heildartekjum eftir tekjubili",
+         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum verðlagsleiðréttum neysluviðmiðum Félags- og vinnumarkaðsráðuneytisins fyrir einstaklinga frá 2019",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
+
+p
+
+ggsave(plot = p, filename = "hlutfall_tekna_eignaskopun_tegund_vidmids.png",
+       width = 8, height = 0.5 * 8, scale = 1.7, bg = "white")
+```
+
 #### 2020 vs 2017
+
+##### Grunnviðmið
 
 ```{r, fig.width = 12, fig.asp = 0.5, out.width = "100%", message = FALSE, warning = FALSE}
 plot_dat <- tekjur_einst |>  
     filter(tekjuar %in% c(2012, 2020)) |>
-    mutate(value = einst_radst - 1568899,
-           hlutf = einst_auka_ekki_bill / einst_heildartekjur,
+    mutate(hlutf = einst_auka_ekki_bill / einst_heildartekjur,
            hlutf = pmax(hlutf, 0),
            tekjuar = fct_relevel(factor(tekjuar), "2020", "2016", "2012"))
 
@@ -735,6 +865,42 @@ ggsave(plot = p, filename = "hlutfall_tekna_eignaskopun_eftir_ari.png",
 
 ```
 
+##### Leiguhúsnæði
+
+```{r, fig.width = 12, fig.asp = 0.5, out.width = "100%", message = FALSE, warning = FALSE}
+plot_dat <- tekjur_einst |>  
+    filter(tekjuar %in% c(2012, 2020)) |>
+    mutate(hlutf = einst_auka_fasteign / einst_heildartekjur,
+           hlutf = pmax(hlutf, 0),
+           tekjuar = fct_relevel(factor(tekjuar), "2020", "2016", "2012"))
+
+
+p <- plot_dat |> 
+    ggplot(aes(tekjubil, hlutf, fill = tekjuar)) +
+    geom_area(position = "identity", alpha = 0.7, col = NA) +
+    geom_textline(aes(label = tekjuar), hjust = "ymid", text_smoothing = 30, size = 5) +
+    scale_x_continuous(breaks = c(5, 25, 50, 75, 100)) +
+    scale_y_continuous(labels = label_percent(), limits = c(0, 1)) +
+    scale_fill_brewer(type = "qual", palette = "Set1") +
+    coord_cartesian(expand = F) +
+    theme_half_open() +
+    theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
+          legend.position = "none") +
+    labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
+         y = NULL,
+         title = "Eignasköpunartekjur sem hlutfall af heildartekjum eftir tekjubili",
+         subtitle = "Ráðstöfunartekjur að frádregnum neysluviðmiðum einstaklinga með bíl, og leiguhúsnæði (510.000kr á mánuði 2019)",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
+
+
+
+p
+
+ggsave(plot = p, filename = "hlutfall_tekna_eignaskopun_eftir_ari_leiga.png",
+       width = 8, height = 0.5 * 8, scale = 1.7, bg = "white")
+
+```
+
 ### Magn eignasköpunartekna
 
 ```{r, fig.width = 12, fig.asp = 0.5, out.width = "100%", message = FALSE, warning = FALSE}
@@ -750,7 +916,7 @@ p <- plot_dat |>
     scale_x_continuous(breaks = c(0, 25, 50, 75, 100)/100,
                        labels = label_percent(),
                        limits = c(0, 1)) +
-    scale_y_continuous(labels = label_number(suffix = " kr"), 
+    scale_y_continuous(labels = function(x) number(x/12, suffix = " kr"), 
                        trans = pseudo_log_trans(),
                        breaks = c(1e4, 3e4, 1e5, 3e5, 1e6, 3e6, 1e7, max(plot_dat$einst_auka_ekki_bill))) +
     scale_fill_brewer() +
@@ -761,7 +927,7 @@ p <- plot_dat |>
           legend.position = "none") +
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
-         title = "Eignasköpunartekjur einstaklinga eftir tekjubili",
+         title = "Mánaðarlegar eignasköpunartekjur einstaklinga eftir tekjubili",
          subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum neysluviðmiðum einstaklinga án bíls, barns né fasteignar (130.000kr á mánuði 2019)",
          caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
@@ -783,40 +949,42 @@ plot_dat <- tekjur_einst |>
     mutate(hlutf = value / einst_heildartekjur,
            hlutf = pmax(hlutf, 0),
            name = fct_recode(name,
-                             "Regluleg neysluviðmið (130.00kr/mán)" = "einst_auka_ekki_bill",
-                             "+ bíll (198.000kr/mán)" = "einst_auka_bill",
-                             "+ húsnæðislán (313.00kr/mán)" = "einst_auka_fasteign",
-                             "+ barn (415.000kr/mán)" = "einst_auka_barn") |> 
-               fct_relevel("Regluleg neysluviðmið (130.00kr/mán)",
-                           "+ bíll (198.000kr/mán)", 
-                           "+ húsnæðislán (313.00kr/mán)", 
-                           "+ barn (415.000kr/mán)"))
+                             "Regluleg neysluviðmið (156.00kr/mán)" = "einst_auka_ekki_bill",
+                             "+ bíll (238.000kr/mán)" = "einst_auka_bill",
+                             "+ leiga (449.00kr/mán)" = "einst_auka_fasteign",
+                             "+ barn (572.000kr/mán)" = "einst_auka_barn") |> 
+               fct_relevel("Regluleg neysluviðmið (156.00kr/mán)",
+                           "+ bíll (238.000kr/mán)", 
+                           "+ leiga (449.00kr/mán)", 
+                           "+ barn (572.000kr/mán)"))
 
 
 p <- plot_dat |> 
-    ggplot(aes(tekjubil/100, hlutf, fill = name)) +
+    ggplot(aes(tekjubil/100, value, fill = name)) +
     geom_area(position = "identity", alpha = 0.7, col = NA) +
     geom_textline(aes(label = name, hjust = name), text_smoothing = 30, size = 5.5) +
     scale_x_continuous(breaks = c(0, 25, 50, 75, 100)/100,
                        labels = label_percent(),
                        limits = c(0, 1)) +
-    scale_y_continuous(labels = label_percent(), limits = c(0, 1)) +
+    scale_y_continuous(labels = function(x) number(x/12,suffix = " kr"), 
+                       trans = pseudo_log_trans(),
+                       breaks = c(1e4, 3e4, 1e5, 3e5, 1e6, 3e6, 1e7, max(plot_dat$value))) +
     scale_fill_brewer() +
-    scale_hjust_manual(values = c(0.3, 0.5, 0.8, 0.9)) +
     scale_colour_brewer() +
-    coord_cartesian(expand = F) +
+    scale_hjust_manual(values = c(0.86, 0.9, 0.94, 0.96)) +
+    coord_cartesian(expand = F, ylim = c(1e6, NA)) +
     theme_half_open() +
     theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
           legend.position = "none") +
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
-         title = "Eignasköpunartekjur sem hlutfall af heildartekjum eftir tekjubili",
-         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum verðlagsleiðréttum neysluviðmiðum Félags- og vinnumarkaðsráðuneytisins fyrir einstaklinga frá 2019",
+         title = "Heildarfé sem einstaklingur getur notað í fjárfestingar og eignasköpun á mánuði",
+         subtitle = "Reiknað með því að draga skatta og neysluviðmið frá heildartekjum",
          caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
 p
 
-ggsave(plot = p, filename = "hlutfall_tekna_eignaskopun_tegund_vidmids.png",
+ggsave(plot = p, filename = "magn_tekna_eignaskopun_tegund_vidmids.png",
        width = 8, height = 0.5 * 8, scale = 1.7, bg = "white")
 ```
 
@@ -901,15 +1069,63 @@ tekjur_par <- read_excel("V_HJUSKAPUR_TEKJUBIL_EINST.xlsx") |>
         by = "tekjuar"
     ) |> 
     mutate(
+        neysluvidmid_fasteign = neysluvidmid_bill + kaupverd * 0.055,
+        neysluvidmid_barn = neysluvidmid_barn + kaupverd * 0.055,
         einst_auka_bill = einst_radst - neysluvidmid_bill,
         einst_auka_ekki_bill = einst_radst - neysluvidmid_ekki_bill,
-        einst_auka_fasteign = einst_radst - neysluvidmid_bill - kaupverd * 1.2 / (40),
-        einst_auka_barn = einst_radst - neysluvidmid_barn - kaupverd * 1.2 / (40)
+        einst_auka_fasteign = einst_radst - neysluvidmid_fasteign,
+        einst_auka_barn = einst_radst - neysluvidmid_barn
     )
 
 ```
 
 ### Hlutfall eignasköpunartekna af heildartekjum
+
+```{r, fig.width = 12, fig.asp = 0.5, out.width = "100%", message = FALSE, warning = FALSE}
+
+plot_dat <- tekjur_par |> 
+    pivot_longer(c(contains("einst_auka"))) |> 
+    select(tekjuar, tekjubil, einst_heildartekjur, name, value) |> 
+    filter(tekjuar %in% c(2020)) |>
+    mutate(hlutf = value / einst_heildartekjur,
+           hlutf = pmax(hlutf, 0),
+           name = fct_recode(name,
+                             "Regluleg neysluviðmið (262.00kr/mán)" = "einst_auka_ekki_bill",
+                             "+ bíll (352.000kr/mán)" = "einst_auka_bill",
+                             "+ leiga (620.00kr/mán)" = "einst_auka_fasteign",
+                             "+ barn (756.000kr/mán)" = "einst_auka_barn") |> 
+               fct_relevel("Regluleg neysluviðmið (262.00kr/mán)",
+                           "+ bíll (352.000kr/mán)", 
+                           "+ leiga (620.00kr/mán)", 
+                           "+ barn (756.000kr/mán)"))
+
+
+p <- plot_dat |> 
+    ggplot(aes(tekjubil/100, hlutf, fill = name)) +
+    geom_area(position = "identity", alpha = 0.7, col = NA) +
+    geom_textline(aes(label = name, hjust = name), text_smoothing = 30, size = 5.5) +
+    scale_x_continuous(breaks = c(0, 25, 50, 75, 100)/100,
+                       labels = label_percent(),
+                       limits = c(0, 1)) +
+    scale_y_continuous(labels = label_percent(), limits = c(0, 1)) +
+    scale_fill_brewer() +
+    scale_hjust_manual(values = c(0.3, 0.5, 0.8, 0.9)) +
+    scale_colour_brewer() +
+    coord_cartesian(expand = F) +
+    theme_half_open() +
+    theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
+          legend.position = "none") +
+    labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
+         y = NULL,
+         title = "Eignasköpunartekjur pars í sambúð sem hlutfall af heildartekjum eftir tekjubili",
+         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum verðlagsleiðréttum neysluviðmiðum Félags- og vinnumarkaðsráðuneytisins fyrir par frá 2019",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
+
+p
+
+ggsave(plot = p, filename = "hlutfall_tekna_eignaskopun_tegund_vidmids_par.png",
+       width = 8, height = 0.5 * 8, scale = 1.7, bg = "white")
+```
 
 #### 2020
 
@@ -933,7 +1149,7 @@ p <- plot_dat |>
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
          title = "Eignasköpunartekjur pars í sambúð sem hlutfall af heildartekjum eftir tekjubili",
-         subtitle = "Eignasköpunartekjur: 2 x Ráðstöfunartekjur einstaklings að frádregnum neysluviðmiðum pars með bíl og fasteign en án barns (400.000kr á mánuði 2019)")
+         subtitle = "Eignasköpunartekjur: 2 x Ráðstöfunartekjur einstaklings að frádregnum neysluviðmiðum pars með bíl og leiguhúsnæði en án barns (600.000kr á mánuði 2019)")
 
 
 
@@ -949,8 +1165,7 @@ ggsave(plot = p, filename = "hlutfall_tekna_eignaskopun_par.png",
 ```{r, fig.width = 12, fig.asp = 0.5, out.width = "100%", message = FALSE, warning = FALSE}
 plot_dat <- tekjur_par |>  
     filter(tekjuar %in% c(2012, 2020)) |>
-    mutate(value = einst_radst - 1568899,
-           hlutf = einst_auka_fasteign / einst_heildartekjur,
+    mutate(hlutf = einst_auka_fasteign / einst_heildartekjur,
            hlutf = pmax(hlutf, 0),
            tekjuar = fct_relevel(factor(tekjuar), "2020", "2016", "2012"))
 
@@ -958,10 +1173,12 @@ plot_dat <- tekjur_par |>
 p <- plot_dat |> 
     ggplot(aes(tekjubil, hlutf, fill = tekjuar)) +
     geom_area(position = "identity", alpha = 0.7, col = NA) +
-    geom_textline(aes(label = tekjuar), hjust = "ymid", text_smoothing = 30, size = 5) +
+    geom_textline(aes(label = tekjuar, hjust = tekjuar),
+                  text_smoothing = 30, size = 5) +
     scale_x_continuous(breaks = c(5, 25, 50, 75, 100)) +
     scale_y_continuous(labels = label_percent(), limits = c(0, 1)) +
     scale_fill_brewer(type = "qual", palette = "Set1") +
+    scale_hjust_manual(values = c(0.6, 0.5)) +
     coord_cartesian(expand = F) +
     theme_half_open() +
     theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
@@ -969,7 +1186,7 @@ p <- plot_dat |>
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
          title = "Eignasköpunartekjur pars í sambúð sem hlutfall af heildartekjum eftir tekjubili",
-         subtitle = "Eignasköpunartekjur: 2 x Ráðstöfunartekjur einstaklings að frádregnum neysluviðmiðum pars með bíl og fasteign en án barns (400.000kr á mánuði 2019)")
+         subtitle = "Eignasköpunartekjur: 2 x Ráðstöfunartekjur einstaklings að frádregnum neysluviðmiðum pars með bíl og leiguhúsnæði en án barns (600.000kr á mánuði 2019)")
 
 
 
@@ -990,24 +1207,24 @@ plot_dat <- tekjur_par |>
 
 
 p <- plot_dat |> 
-    ggplot(aes(tekjubil/100, einst_auka_ekki_bill)) +
+    ggplot(aes(tekjubil/100, einst_auka_fasteign)) +
     geom_area(position = "identity", alpha = 0.7, col = NA) +
     scale_x_continuous(breaks = c(0, 25, 50, 75, 100)/100,
                        labels = label_percent(),
                        limits = c(0, 1)) +
-    scale_y_continuous(labels = label_number(suffix = " kr"), 
+    scale_y_continuous(labels = function(x) number(x/12, suffix = " kr"), 
                        trans = pseudo_log_trans(),
-                       breaks = c(1e4, 3e4, 1e5, 3e5, 1e6, 3e6, 1e7, 3e7, max(plot_dat$einst_auka_ekki_bill))) +
+                           breaks = c(12 * c(1e4, 3e4, 1e5, 3e5, 1e6, 3e6, 1e7, 3e7), max(plot_dat$einst_auka_fasteign))) +
     scale_fill_brewer() +
     scale_colour_brewer() +
-    coord_cartesian(expand = F, ylim = c(1e6, NA)) +
+    coord_cartesian(expand = F, ylim = c(1.2e5, NA)) +
     theme_half_open() +
     theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
           legend.position = "none") +
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
-         title = "Eignasköpunartekjur pars í sambúð sem hlutfall af heildartekjum eftir tekjubili",
-         subtitle = "Eignasköpunartekjur: 2 x Ráðstöfunartekjur einstaklings að frádregnum neysluviðmiðum pars með bíl og fasteign en án barns (400.000kr á mánuði 2019)")
+         title = "Mánaðarlegar eignasköpunartekjur pars í sambúð eftir tekjubili",
+         subtitle = "Eignasköpunartekjur: 2 x Ráðstöfunartekjur einstaklings að frádregnum neysluviðmiðum pars með bíl og fasteign en án barns (600.000kr á mánuði 2019)")
 
 
 p
@@ -1018,44 +1235,53 @@ ggsave(plot = p, filename = "magn_tekna_eignaskopun_par.png",
 
 #### Eftir tegund neysluviðmiða
 
+### Eftir tegund neysluviðmiða
+
 ```{r, fig.width = 12, fig.asp = 0.5, out.width = "100%", message = FALSE, warning = FALSE}
 
-plot_dat <- tekjur_einst |> 
+plot_dat <- tekjur_par |> 
     pivot_longer(c(contains("einst_auka"))) |> 
     select(tekjuar, tekjubil, einst_heildartekjur, name, value) |> 
     filter(tekjuar %in% c(2020)) |>
     mutate(hlutf = value / einst_heildartekjur,
            hlutf = pmax(hlutf, 0),
            name = fct_recode(name,
-                             "Regluleg neysluviðmið" = "einst_auka_ekki_bill",
-                             "+ bíll" = "einst_auka_bill",
-                             "+ húsnæðislán" = "einst_auka_fasteign",
-                             "+ barn" = "einst_auka_barn") |> 
-               fct_relevel("Regluleg neysluviðmið", "+ bíll", "+ húsnæðislán", "+ barn"))
+                             "Regluleg neysluviðmið (262.00kr/mán)" = "einst_auka_ekki_bill",
+                             "+ bíll (352.000kr/mán)" = "einst_auka_bill",
+                             "+ leiga (620.00kr/mán)" = "einst_auka_fasteign",
+                             "+ barn (756.000kr/mán)" = "einst_auka_barn") |> 
+               fct_relevel("Regluleg neysluviðmið (262.00kr/mán)",
+                           "+ bíll (352.000kr/mán)", 
+                           "+ leiga (620.00kr/mán)", 
+                           "+ barn (756.000kr/mán)"))
 
 
 p <- plot_dat |> 
-    ggplot(aes(tekjubil/100, hlutf, fill = name)) +
+    ggplot(aes(tekjubil/100, value, fill = name)) +
     geom_area(position = "identity", alpha = 0.7, col = NA) +
-    geom_textline(aes(label = name), hjust = "ymid", text_smoothing = 30, size = 5) +
+    geom_textline(aes(label = name, hjust = name), text_smoothing = 30, size = 5.5) +
     scale_x_continuous(breaks = c(0, 25, 50, 75, 100)/100,
                        labels = label_percent(),
                        limits = c(0, 1)) +
-    scale_y_continuous(labels = label_percent(), limits = c(0, 1)) +
+    scale_y_continuous(labels = function(x) number(x/12, suffix = " kr"), 
+                       trans = pseudo_log_trans(),
+                       breaks = c(12 * c(1e4, 3e4, 1e5, 3e5, 1e6, 3e6, 1e7), max(plot_dat$value))) +
     scale_fill_brewer() +
     scale_colour_brewer() +
-    coord_cartesian(expand = F) +
+    scale_hjust_manual(values = c(0.81, 0.85, 0.89, 0.95)) +
+    coord_cartesian(expand = F, ylim = c(1e5, NA)) +
     theme_half_open() +
     theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
           legend.position = "none") +
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
-         title = "Hlutfall heildartekna sem einstaklingur getur notað í fjárfestingar og eignasköpun",
-         subtitle = "Reiknað með því að draga skatta og neysluviðmið frá heildartekjum og deila upp í með heildartekjum")
+         title = "Mánaðarlegar eignasköpunartekjur sem par í sambúð getur notað í fjárfestingar og eignasköpun",
+         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum verðlagsleiðréttum neysluviðmiðum Félags- og vinnumarkaðsráðuneytisins fyrir par frá 2019",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
 p
 
-ggsave(plot = p, filename = "hlutfall_tekna_eignaskopun_tegund_vidmids.png",
+ggsave(plot = p, filename = "magn_tekna_eignaskopun_tegund_vidmids_par.png",
        width = 8, height = 0.5 * 8, scale = 1.7, bg = "white")
 ```
 
