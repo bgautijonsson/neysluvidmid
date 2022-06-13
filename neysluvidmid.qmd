@@ -85,8 +85,8 @@ p <- d_tiund |>
     theme_tufte() +
     labs(x = "Tekjuár",
          y = "Heildartekjur meðaleinstaklings",
-         colour = "Hundraðshl.\ntekna",
-         title = "Þróun heildartekna meðaleinstaklings eftir hundraðshlutamarki (percentile) tekna",
+         colour = "Tekjubil",
+         title = "Þróun heildartekna meðaleinstaklings eftir tekjubili og ári",
          caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid") +
     theme(legend.position = c(1, 0.8), 
           plot.margin = margin(t = 5, r = 65, b = 5, l = 5),
@@ -116,10 +116,10 @@ p <- d_tiund |>
                           breaks = c(1992, 2000, 2010, 2020),
                           guide = guide_colorbar(reverse = F, barheight = unit(105, "points"))) +
     theme_tufte() +
-    labs(x = "Hundraðshlutamark tekna (Percentile)",
+    labs(x = "Tekjubil",
          y = "Heildartekjur meðaleinstaklings",
          colour = "Tekjuár",
-         title = "Heildartekjur meðaleinstaklings eftir hundraðshlutamarki (percentile) tekna",
+         title = "Heildartekjur meðaleinstaklings eftir tekjubili og ári",
          caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid") +
     theme(legend.position = c(0.995, 0.84), 
           plot.margin = margin(t = 5, r = 65, b = 5, l = 5), 
@@ -155,8 +155,8 @@ p <- d_tiund |>
     theme_tufte() +
     labs(x = "Tekjuár",
          y = "Ráðstöfunartekjur meðaleinstaklings",
-         colour = "Hundraðshl.\ntekna",
-         title = "Þróun ráðstöfunartekna meðaleinstaklings eftir hundraðshlutamarki (percentile) tekna",
+         colour = "Tekjubil",
+         title = "Þróun ráðstöfunartekna meðaleinstaklings eftir tekjubili og ári",
          caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid") +
     theme(legend.position = c(1, 0.8), 
           plot.margin = margin(t = 5, r = 65, b = 5, l = 5), 
@@ -185,10 +185,10 @@ p <- d_tiund |>
                           breaks = c(1992, 2000, 2010, 2020),
                           guide = guide_colorbar(reverse = F, barheight = unit(105, "points"))) +
     theme_tufte() +
-    labs(x = "Hundraðshlutamark tekna (Percentile)",
+    labs(x = "Tekjubil",
          y = "Ráðstöfunartekjur meðaleinstaklings",
          colour = "Tekjuár",
-         title = "Ráðstöfunartekjur meðaleinstaklings eftir hundraðshlutamarki (percentile) tekna",
+         title = "Ráðstöfunartekjur meðaleinstaklings eftir tekjubili og tekjuári",
          caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid") +
     theme(legend.position = c(0.995, 0.84), 
           plot.margin = margin(t = 5, r = 65, b = 5, l = 5), 
@@ -226,9 +226,10 @@ p <- d_fast |>
                        breaks = c(min(d_fast$kaupverd), max(d_fast$kaupverd),
                                   1e7, 2e7, 3e7, 4e7)) +
     theme_tufte() +
+    theme(plot.title = element_text(face = "bold")) +
     labs(x = "Ár",
          y = "Meðalkaupverð fjölbýliseignar",
-         title = "Þróun meðalkaupverðs fjölbýliseigna",
+         title = "Þróun meðalkaupverðs fjölbýliseigna í Reykjavík",
          caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
 p
@@ -276,11 +277,11 @@ p <- plot_dat |>
                           breaks = c(1992, 2006, 2020), 
                           guide = guide_colorbar(reverse = F, barheight = unit(45, "points"))) +
     theme_tufte(base_size = 8) +
-    labs(x = "Hundraðshlutamark (Percentile) tekna",
+    labs(x = "Tekjubil",
          y = NULL,
          colour = "Ár",
          title = "Hvað eru tekjuhópar lengi að kaupa meðalíbúð á höfuðborgarsvæðinu með 100% af ráðstöfunartekjum sínum?",
-         subtitle = "Sýnt eftir hundraðshlutamarki (percentile) tekna",
+         subtitle = "Sýnt eftir tekjubili og ári",
          caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid") +
     theme(plot.title = element_text(face = "bold"),
           legend.position = "none", 
@@ -307,10 +308,7 @@ d_leiga <- read_csv2("verd_e_baejum_ar.csv",
     filter(svaedi %in% c("Breiðholt",
                          "Reykjavík, austan Kringlumýrarbrautar",
                          "Reykjavík, vestan Kringlumýrarbrautar og Seltjarnarnes",
-                         "Kópavogur",
-                         "Kjalarnes og Mosfellsbær",
-                         "Grafarvogur, Grafarholt, Árbær, Norðlingaholt og Úlfarsárdalur",
-                         "Garðabær, Hafnarfjörður og Álftanes"),
+                         "Grafarvogur, Grafarholt, Árbær, Norðlingaholt og Úlfarsárdalur"),
            fjoldi_herbergja == "3") |> 
     group_by(ar) |> 
     summarise(n = sum(fjoldi_samninga),
@@ -323,17 +321,19 @@ d_leiga <- read_csv2("verd_e_baejum_ar.csv",
 ```{r}
 p <- d_leiga |> 
     ggplot(aes(tekjuar, leiguverd / 12)) +
-    geom_line() +
+    geom_area(alpha = 0.7) +
     geom_rangeframe() +
     scale_x_continuous(breaks = 2011:2022) +
     scale_y_continuous(labels = label_number(accuracy = 1e3, big.mark = ".", decimal.mark = ",", suffix = "kr"),
-                       breaks = c(min(d_leiga$leiguverd/12), max(d_leiga$leiguverd/12),
-                                  1.25e5)) +
+                       breaks = c(0, min(d_leiga$leiguverd/12), max(d_leiga$leiguverd/12),
+                                  1.25e5),
+                       expand = expansion()) +
+    coord_cartesian(ylim = c(0, NA)) +
     theme_tufte() +
     theme(plot.title = element_text(face = "bold")) +
-    labs(x = "Ár",
-         y = "Meðalleiguverð 80fm íbúðar",
-         title = "Þróun meðalleiguverðs 60fm íbúðar",
+    labs(x = NULL,
+         y = NULL,
+         title = "Þróun meðalleiguverðs 60fm þriggja herbergja íbúðar í Reykjavík",
          caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
 p
@@ -464,7 +464,7 @@ plot_dat <- d |>
     mutate(value = value / 5)
 
 
-plot_dat |> 
+p <- plot_dat |> 
     ggplot(aes(tekjubil, value)) +
     geom_line(aes(lty = name)) +
     geom_text(
@@ -484,8 +484,13 @@ plot_dat |>
     labs(x = "Tekjubil",
          y = NULL,
          title = "Hvað eru tekjuhópar lengi að safna sér í 20% af kaupverði meðalíbúðar á höfuðborgarsvæðinu?",
-         subtitle = "Sýnt fyrir að 100% af ráðstöfunartekjum fari í sparnað með og án leiguútgjalda.",
+         subtitle = "Sýnt fyrir tilvik þegar 100% af ráðstöfunartekjum fara í sparnað með og án leiguútgjalda (hér 163.000 kr á mánuði, 4% af kaupverði á ári)",
          caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
+
+p
+
+ggsave(plot = p, filename = "kauptimi_fasteigna_med_leigu.png",
+       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
 ```
 
 
