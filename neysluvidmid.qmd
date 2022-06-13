@@ -247,11 +247,62 @@ d <- d_fast |>
     )
 ```
 
+```{r, fig.width = 12}
+plot_dat <- d |> 
+    select(tekjuar, tekjubil, einst_radst, kaupverd) |> 
+    mutate(kaupverd_pr_radst = kaupverd / einst_radst)
+
+
+p <- plot_dat |> 
+    ggplot(aes(tekjubil, kaupverd_pr_radst, col = tekjuar)) +
+    geom_line() +
+    geom_text(
+        data = tibble(
+            tekjuar = unique(plot_dat$tekjuar),
+            tekjubil = 95,
+            kaupverd_pr_radst = plot_dat |> filter(tekjubil == 95) |> arrange(tekjuar) |> pull(kaupverd_pr_radst),
+            text = as.character(tekjuar)
+        ),
+        aes(x = tekjubil, y = kaupverd_pr_radst, label = text, col = tekjuar),
+        inherit.aes = FALSE, hjust = 0, nudge_x = 0.1, size = 3,
+    ) +
+    geom_rangeframe(data = tibble(tekjubil = c(5, 95), kaupverd_pr_radst = c(2.4, 202.2)),
+                    aes(x = tekjubil, y = kaupverd_pr_radst), inherit.aes = F) +
+    scale_y_log10(breaks = c(min(plot_dat$kaupverd_pr_radst), 1, 3, 10, 33, 100, max(plot_dat$kaupverd_pr_radst)),
+                  labels = label_number(accuracy = 0.1, suffix = " ár", decimal.mark = ",", big.mark = ".")) +
+    scale_x_continuous(breaks = c(5, 25, 50, 75, 95),
+                       limits = c(5, 96)) +
+    scale_color_distiller(type = "div", palette = "RdBu", 
+                          breaks = c(1992, 2006, 2020), 
+                          guide = guide_colorbar(reverse = F, barheight = unit(45, "points"))) +
+    theme_tufte(base_size = 8) +
+    labs(x = "Hundraðshlutamark (Percentile) tekna",
+         y = NULL,
+         colour = "Ár",
+         title = "Hvað eru tekjuhópar lengi að kaupa meðalíbúð á höfuðborgarsvæðinu með 100% af ráðstöfunartekjum sínum?",
+         subtitle = "Sýnt eftir hundraðshlutamarki (percentile) tekna",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid") +
+    theme(plot.title = element_text(face = "bold"),
+          legend.position = "none", 
+          plot.margin = margin(t = 5, r = 5, b = 5, l = 5), plot.title.position = "panel") +
+    transition_time(
+        time = as.integer(tekjuar)
+    ) +
+    ease_aes("cubic-in-out") +
+    shadow_trail(distance = 0.01, alpha = 0.1, size = 0.3, label = "")
+
+
+p_vid <- animate(p, width = 8, height = 0.5 * 8, unit = "in", res = 150, fps = 25, duration = 10,
+                 renderer = ffmpeg_renderer(format = "mp4"))
+
+anim_save(filename = "kauptimi_fasteigna.mp4", animation = p_vid)
+```
+
 ## Leiguverð
 
 ```{r}
 d_leiga <- read_csv2("verd_e_baejum_ar.csv",
-         locale = locale("is", encoding = "ISO-8859-1")) |> 
+                     locale = locale("is", encoding = "ISO-8859-1")) |> 
     janitor::clean_names() |> 
     filter(svaedi %in% c("Breiðholt",
                          "Reykjavík, austan Kringlumýrarbrautar",
@@ -277,7 +328,7 @@ p <- d_leiga |>
     scale_x_continuous(breaks = 2011:2022) +
     scale_y_continuous(labels = label_number(accuracy = 1e3, big.mark = ".", decimal.mark = ",", suffix = "kr"),
                        breaks = c(min(d_leiga$leiguverd/12), max(d_leiga$leiguverd/12),
-                                  1.5e5,2e5)) +
+                                  1.25e5)) +
     theme_tufte() +
     theme(plot.title = element_text(face = "bold")) +
     labs(x = "Ár",
@@ -305,7 +356,7 @@ p <- plot_dat |>
     geom_line() +
     geom_rangeframe() +
     scale_x_continuous(breaks = 2011:2020) +
-    scale_y_continuous(breaks = c(range(plot_dat$hlutf), 0.054, 0.056, 0.058, 0.06),
+    scale_y_continuous(breaks = c(range(plot_dat$hlutf), 0.04, 0.042, 0.045),
                        labels = label_percent()) +
     theme_tufte() +
     theme(plot.title = element_text(face = "bold")) +
@@ -317,6 +368,125 @@ ggsave(plot = p, filename = "leiguverd_hlutf_kaupverd_fjolbylis.png",
        width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
 ```
 
+```{r}
+plot_dat <- d_fast |> 
+    mutate(leiguverd = 0.04 * kaupverd,
+           tegund = "Nálgun") |> 
+    select(-kaupverd) |> 
+    bind_rows(
+        d_leiga |> 
+            mutate(tegund = "raun")
+    )
+
+
+p <- plot_dat |> 
+    ggplot(aes(tekjuar, leiguverd/12)) +
+    geom_line(aes(lty = tegund)) +
+    geom_rangeframe() +
+    scale_x_continuous(breaks = 2011:2020) +
+    scale_y_continuous(breaks = c(range(plot_dat$leiguverd/12)),
+                       labels = label_number(suffix = "kr")) +
+    theme_tufte() +
+    theme(plot.title = element_text(face = "bold")) +
+    labs(x = NULL, y = NULL,
+         title = "Leiguverð sem hlutfall af kaupverði fyrir íbúðir í fjölbýli á Höfuðborgarsvæðinu (2011 - 2020)")
+p
+
+ggsave(plot = p, filename = "leiguverd_samanburdur.png",
+       width = 8, height = 0.5 * 8, scale = 1.5, bg = "white")
+```
+
+```{r, fig.width = 12}
+plot_dat <- d |> 
+    select(tekjuar, tekjubil, einst_radst, kaupverd) |> 
+    mutate(leiga = 0.04 * kaupverd,
+           kaupverd_pr_radst = kaupverd / (einst_radst - leiga)) |> 
+    filter(kaupverd_pr_radst > 0)
+
+
+p <- plot_dat |> 
+    ggplot(aes(tekjubil, kaupverd_pr_radst, col = tekjuar)) +
+    geom_line() +
+    geom_text(
+        data = tibble(
+            tekjuar = unique(plot_dat$tekjuar),
+            tekjubil = 95,
+            kaupverd_pr_radst = plot_dat |> filter(tekjubil == 95) |> arrange(tekjuar) |> pull(kaupverd_pr_radst),
+            text = as.character(tekjuar)
+        ),
+        aes(x = tekjubil, y = kaupverd_pr_radst, label = text, col = tekjuar),
+        inherit.aes = FALSE, hjust = 0, nudge_x = 0.1, size = 3,
+    ) +
+    geom_rangeframe(data = tibble(tekjubil = c(5, 95), kaupverd_pr_radst = c(2.4, 202.2)),
+                    aes(x = tekjubil, y = kaupverd_pr_radst), inherit.aes = F) +
+    scale_y_log10(breaks = c(min(plot_dat$kaupverd_pr_radst), 1, 3, 10, 33, 100, max(plot_dat$kaupverd_pr_radst)),
+                  labels = label_number(accuracy = 0.1, suffix = " ár", decimal.mark = ",", big.mark = ".")) +
+    scale_x_continuous(breaks = c(5, 25, 50, 75, 95),
+                       limits = c(5, 96)) +
+    scale_color_distiller(type = "div", palette = "RdBu", 
+                          breaks = c(1992, 2006, 2020), 
+                          guide = guide_colorbar(reverse = F, barheight = unit(45, "points"))) +
+    coord_cartesian(ylim = c(2.4, 202.2)) +
+    theme_tufte(base_size = 8) +
+    labs(x = "Hundraðshlutamark (Percentile) tekna",
+         y = NULL,
+         colour = "Ár",
+         title = "Afborgunartími sömu fasteignar með afgang af ráðstöfunartekjum eftir leigu (0.4% af fasteignaverði á ári)",
+         subtitle = "Sýnt eftir hundraðshlutamarki (percentile) tekna",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid") +
+    theme(plot.title = element_text(face = "bold"),
+          legend.position = "none", 
+          plot.margin = margin(t = 5, r = 5, b = 5, l = 5), plot.title.position = "panel") +
+    transition_time(
+        time = as.integer(tekjuar)
+    ) +
+    ease_aes("cubic-in-out") +
+    shadow_trail(distance = 0.01, alpha = 0.1, size = 0.3, label = "")
+
+
+p_vid <- animate(p, width = 8, height = 0.5 * 8, unit = "in", res = 150, fps = 25, duration = 10,
+                 renderer = ffmpeg_renderer(format = "mp4"))
+
+anim_save(filename = "kauptimi_fasteigna_med_leigu.mp4", animation = p_vid)
+```
+
+
+```{r, fig.width = 12, fig.asp = 0.5}
+plot_dat <- d |> 
+    select(tekjuar, tekjubil, einst_radst, kaupverd) |> 
+    mutate(leiga = 0.04 * kaupverd,
+           kaupverd_pr_radst = kaupverd / (einst_radst),
+           kaupverd_pr_radst_leiga = kaupverd / (einst_radst - leiga)) |> 
+    filter(tekjuar == 2020) |> 
+    select(tekjuar, tekjubil, "Ráðstöfunartekjur" = kaupverd_pr_radst, "Eftir leigu" = kaupverd_pr_radst_leiga) |> 
+    pivot_longer(c(-tekjubil, -tekjuar)) |> 
+    filter(value > 0) |> 
+    mutate(value = value / 5)
+
+
+plot_dat |> 
+    ggplot(aes(tekjubil, value)) +
+    geom_line(aes(lty = name)) +
+    geom_text(
+        data = plot_dat |> filter(tekjubil == max(tekjubil)),
+        aes(label = name),
+        hjust = 0, nudge_x = 1
+    )+
+    geom_rangeframe() +
+    scale_x_continuous(breaks = c(min(plot_dat$tekjubil), 25, 50, 75, 95)) +
+    scale_y_log10(breaks = c(range(plot_dat$value), 2, 3, 10, 20, 30, 100, 200, 300, 1000),
+                  labels = label_number(suffix = " ár", accuracy = 1, big.mark = ".", decimal.mark = ",")) +
+    coord_cartesian(clip = "off") +
+    theme_tufte() +
+    theme(legend.position = "none",
+          plot.margin = margin(t = 5, r = 55, b = 5, l = 5),
+          plot.title = element_text(face = "bold")) +
+    labs(x = "Tekjubil",
+         y = NULL,
+         title = "Hvað eru tekjuhópar lengi að safna sér í 20% af kaupverði meðalíbúðar á höfuðborgarsvæðinu?",
+         subtitle = "Sýnt fyrir að 100% af ráðstöfunartekjum fari í sparnað með og án leiguútgjalda.",
+         caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
+```
 
 
 # Neysluviðmið
@@ -799,6 +969,14 @@ ggsave(plot = p, filename = "hlutfall_tekna_eignaskopun.png",
 ##### Eftir tegund neysluviðmiða
 
 ```{r}
+tekjur_einst |> 
+    filter(tekjuar == 2020) |> 
+    distinct(neysluvidmid_barn, neysluvidmid_bill, neysluvidmid_ekki_bill, neysluvidmid_fasteign) |> 
+    mutate_all(~ . / 12)
+```
+
+
+```{r}
 
 plot_dat <- tekjur_einst |> 
     pivot_longer(c(contains("einst_auka"))) |> 
@@ -879,26 +1057,26 @@ p
 
 ggsave(plot = p, filename = "hlutfall_tekna_eignaskopun_eftir_ari.png",
        width = 8, height = 0.5 * 8, scale = 1.7, bg = "white")
-
 ```
 
 ##### Leiguhúsnæði
 
 ```{r}
 plot_dat <- tekjur_einst |>  
-    filter(tekjuar %in% c(2016, 2020)) |>
+    filter(tekjuar %in% c(2012, 2020)) |>
     mutate(hlutf = einst_auka_fasteign / einst_heildartekjur,
            hlutf = pmax(hlutf, 0),
-           tekjuar = fct_relevel(factor(tekjuar), "2020", "2016", "2012"))
+           tekjuar = fct_relevel(factor(tekjuar), "2020", "2012"))
 
 
 p <- plot_dat |> 
     ggplot(aes(tekjubil, hlutf, fill = tekjuar)) +
     geom_area(position = "identity", alpha = 0.7, col = NA) +
-    geom_textline(aes(label = tekjuar), hjust = "ymid", text_smoothing = 30, size = 5) +
+    geom_textline(aes(label = tekjuar, hjust = tekjuar), text_smoothing = 30, size = 5) +
     scale_x_continuous(breaks = c(5, 25, 50, 75, 100)) +
     scale_y_continuous(labels = label_percent(), limits = c(0, 1)) +
     scale_fill_brewer(type = "qual", palette = "Set1") +
+    scale_hjust_manual(values = c(0.98, 0.6)) +
     coord_cartesian(expand = F) +
     theme_half_open() +
     theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
@@ -906,7 +1084,7 @@ p <- plot_dat |>
     labs(x = "Tekjubil\n(0% eru lægsti tekjuhópurinn og 100% er hæsti tekjuhópurinn)",
          y = NULL,
          title = "Eignasköpunartekjur sem hlutfall af heildartekjum eftir tekjubili",
-         subtitle = "Ráðstöfunartekjur að frádregnum neysluviðmiðum einstaklinga með bíl, og leiguhúsnæði (372.000kr á mánuði 2020)",
+         subtitle = "Eignasköpunartekjur: Ráðstöfunartekjur að frádregnum neysluviðmiðum einstaklinga með bíl, og leiguhúsnæði (372.000kr á mánuði 2020)",
          caption = "Kóði og gögn: https://github.com/bgautijonsson/neysluvidmid")
 
 
@@ -940,7 +1118,7 @@ p <- plot_dat |>
                        breaks = c(12 * c(1e4, 3e4, 1e5, 3e5, 1e6, 3e6, 1e7), max(plot_dat$einst_auka_ekki_bill))) +
     scale_fill_brewer() +
     scale_colour_brewer() +
-    coord_cartesian(expand = F, ylim = c(1e6, NA)) +
+    coord_cartesian(expand = F, ylim = c(12e4, NA)) +
     theme_half_open() +
     theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
           legend.position = "none") +
@@ -972,11 +1150,11 @@ p <- plot_dat |>
                        labels = label_percent(),
                        limits = c(0, 1)) +
     scale_y_continuous(labels = function(x) number(x/12, suffix = " kr"), 
-                       trans = pseudo_log_trans(),
-                       breaks = c(12 * c(1e4, 3e4, 1e5, 3e5, 1e6, 3e6, 1e7), max(plot_dat$einst_auka_fasteign))) +
+                       # trans = pseudo_log_trans(),
+                       breaks = c(12 * c(0, 83000, c(2.5, 5, 7.5, 10) * 1e5), max(plot_dat$einst_auka_fasteign))) +
     scale_fill_brewer() +
     scale_colour_brewer() +
-    coord_cartesian(expand = F, ylim = c(1e5, NA)) +
+    coord_cartesian(expand = F, ylim = c(0, 12e6)) +
     theme_half_open() +
     theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
           legend.position = "none") +
@@ -1027,7 +1205,7 @@ p <- plot_dat |>
     scale_fill_brewer() +
     scale_colour_brewer() +
     scale_hjust_manual(values = c(0.86, 0.9, 0.94, 0.96)) +
-    coord_cartesian(expand = F, ylim = c(1e6, NA)) +
+    coord_cartesian(expand = F, ylim = c(12e4, NA)) +
     theme_half_open() +
     theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
           legend.position = "none") +
@@ -1086,6 +1264,14 @@ tekjur_par <- read_excel("V_HJUSKAPUR_TEKJUBIL_EINST.xlsx") |>
 ### Hlutfall eignasköpunartekna af heildartekjum
 
 #### 2020
+
+```{r}
+tekjur_par |> 
+    filter(tekjuar == 2020) |> 
+    distinct(neysluvidmid_barn, neysluvidmid_bill, neysluvidmid_ekki_bill, neysluvidmid_fasteign) |> 
+    mutate_all(~ . / 12)
+```
+
 
 ```{r}
 plot_dat <- tekjur_par |>  
@@ -1216,7 +1402,7 @@ p <- plot_dat |>
                        limits = c(0, 1)) +
     scale_y_continuous(labels = function(x) number(x/12, suffix = " kr"), 
                        trans = pseudo_log_trans(),
-                           breaks = c(12 * c(1e4, 3e4, 1e5, 3e5, 1e6, 3e6, 1e7, 3e7), max(plot_dat$einst_auka_fasteign))) +
+                       breaks = c(12 * c(1e4, 3e4, 1e5, 3e5, 1e6, 3e6, 1e7, 3e7), max(plot_dat$einst_auka_fasteign))) +
     scale_fill_brewer() +
     scale_colour_brewer() +
     coord_cartesian(expand = F, ylim = c(1.2e5, NA)) +
@@ -1270,8 +1456,8 @@ p <- plot_dat |>
                        breaks = c(12 * c(1e4, 3e4, 1e5, 3e5, 1e6, 3e6, 1e7), max(plot_dat$value))) +
     scale_fill_brewer() +
     scale_colour_brewer() +
-    scale_hjust_manual(values = c(0.81, 0.85, 0.89, 0.95)) +
-    coord_cartesian(expand = F, ylim = c(1e6, NA)) +
+    scale_hjust_manual(values = c(0.75, 0.83, 0.88, 0.95)) +
+    coord_cartesian(expand = F, ylim = c(12e4, NA)) +
     theme_half_open() +
     theme(plot.margin = margin(t = 5, r = 15, b = 5, l = 5),
           legend.position = "none") +
